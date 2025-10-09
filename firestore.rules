@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function isAdmin(uid) {
+      // Checks for a 'role' field in the user's document
+      return get(/databases/$(db)/documents/users/$(uid)).data.role == 'admin';
+    }
+
+    match /rules/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin(request.auth.uid);
+    }
+
+    // Allow logged-in users to read student data, only admins can write
+    match /students/{studentId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin(request.auth.uid);
+    }
+
+    // You might want to secure your users collection as well
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /records/{recordId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+
+    match /weeklyScores/{scoreId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

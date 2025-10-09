@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@sosd/domain": ["packages/domain/src"]
+    }
+  },
+  "references": [
+    { "path": "./apps/web" },
+    { "path": "./apps/functions" },
+    { "path": "./packages/domain" }
+  ]
+}
