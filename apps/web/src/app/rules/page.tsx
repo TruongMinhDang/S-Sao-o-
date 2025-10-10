@@ -10,6 +10,8 @@ import {
   type FirestoreDataConverter,
   Timestamp,
   addDoc,
+  WithFieldValue,
+  PartialWithFieldValue,
 } from 'firebase/firestore';
 import { type User } from 'firebase/auth';
 import { db as defaultDb, auth } from '@/lib/firebase.client';
@@ -40,11 +42,10 @@ type Rule = {
 
 // Firestore converter
 const ruleConverter: FirestoreDataConverter<Rule> = {
-  toFirestore(rule: Omit<Rule, 'id'>) {
-    return {
-      ...rule,
-      updatedAt: Timestamp.now(),
-    };
+  toFirestore(rule: PartialWithFieldValue<Rule>) {
+    const data = { ...rule };
+    data.updatedAt = Timestamp.now();
+    return data;
   },
   fromFirestore(snap) {
     const d = snap.data();
@@ -163,7 +164,7 @@ export default function RulesPage() {
         }
       }
 
-      const ruleToSave: Omit<Rule, 'id'> = {
+      const ruleToSave = {
         code: newCode,
         category: newRule.category,
         content: newRule.content,

@@ -11,6 +11,8 @@ import {
   query,
   where,
   getDoc,
+  Query,
+  DocumentData,
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,7 +114,7 @@ export default function UsersPage() {
         }
 
         const currentUserProfile = docSnap.data() as User;
-        let usersQuery = collection(db, 'users');
+        let usersQuery: Query<DocumentData> = collection(db, 'users');
 
         // Xây dựng câu truy vấn dựa trên vai trò
         // DÙNG `isAdmin` từ useAuth để quyết định có lọc dữ liệu không.

@@ -91,7 +91,7 @@ export default function LoginPage() {
                 </div>
                 <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center space-x-2">
-                        <Checkbox id="remember-me" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(Boolean(checked))} />
+                        <Checkbox id="remember-me" checked={rememberMe} onCheckedChange={(checked: boolean) => setRememberMe(Boolean(checked))} />
                         <Label htmlFor="remember-me" className="text-sm font-medium leading-none cursor-pointer">Ghi nhớ tôi</Label>
                     </div>
                     <a href="#" className="text-sm text-primary hover:underline">
