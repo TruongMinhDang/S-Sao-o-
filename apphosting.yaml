@@ -1,6 +1,9 @@
-run:
-  build: npm run build
-labels: {}
+build:
+  run: |
+    npm install -w web
+    npm run build -w web
+  output: 
+    path: ./apps/web/.next
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: 'AIzaSyAqGxdFqDGXOiiKP5cKFvPkNkmTdY4aByw'
