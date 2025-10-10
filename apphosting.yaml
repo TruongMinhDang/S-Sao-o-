@@ -2,7 +2,7 @@ build:
   run: |
     npm install -w web
     npm run build -w web
-  output: 
+  output:
     path: ./apps/web/.next
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
@@ -14,7 +14,7 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: 'app-quan-ly-hs'
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: 'app-quan-ly-hs.firebasestorage.app'
+    value: 'app-quan-ly-hs.appspot.com'
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     value: '771200825229'
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
