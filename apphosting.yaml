@@ -1,9 +1,12 @@
-# Re-triggering deployment
 build:
   run: |
-    npm install -w web
-    npm run build -w web
+    # Change directory into the web app
+    cd apps/web
+    # Install dependencies and build locally
+    npm install
+    npm run build
   output:
+    # The output path is now relative to the repo root
     path: ./apps/web/.next/standalone
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
