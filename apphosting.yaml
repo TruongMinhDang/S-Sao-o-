@@ -1,15 +1,9 @@
 build:
   run: |
-    # Install all workspace dependencies from the root
     npm install
-    # Build the specific 'web' application
     npm run build -w web
-    # Create a clean distribution directory
-    mkdir ./dist
-    # Copy the standalone build output to the distribution directory
-    cp -r ./apps/web/.next/standalone/* ./dist/
 output:
-  path: ./dist
+  path: ./apps/web/.next
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: 'AIzaSyAqGxdFqDGXOiiKP5cKFvPkNkmTdY4aByw'
