@@ -1,8 +1,9 @@
 build:
   run: |
     npm install
-    npm run build -w web
-    mv apps/web/.next .
+    # Copy the web app to the root to work around monorepo path issues
+    cp -rT apps/web/ .
+    npm run build
 output:
   path: ./.next
 env:
