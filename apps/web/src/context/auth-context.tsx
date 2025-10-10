@@ -2,15 +2,14 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { app, db } from '@/lib/firebase.client';
-
-// Lấy instance của Firebase Auth
-const auth = getAuth(app);
+import { app } from '@/lib/firebase.client'; // Bỏ import 'db' vì không cần nữa
 
 interface AuthContextType {
-  user: User | null; // User object từ Firebase Auth
-  userProfile: UserProfile | null; // Profile từ Firestore (chứa role)
+  user: User | null;
+  /**
+   * Thông tin user mở rộng, chứa vai trò được lấy từ Custom Claims.
+   */
+  userProfile: UserProfile | null;
   isAdmin: boolean;
   loading: boolean;
 }
@@ -19,6 +18,7 @@ interface UserProfile {
   displayName?: string;
   email?: string;
   role?: 'admin' | 'teacher';
+  // Có thể thêm các thuộc tính khác từ claims sau này, ví dụ: assignedClasses
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,39 +29,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // User đã đăng nhập, lấy thông tin role từ Firestore
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data() as UserProfile);
-        } else {
-          // Không tìm thấy profile, có thể là user mới
-          setUserProfile(null);
-        }
+        // === THAY ĐỔI CỐT LÕI ===
+        // Lấy custom claims từ ID token thay vì đọc từ Firestore.
+        // forceRefresh: true đảm bảo token luôn mới nhất, phản ánh thay đổi quyền gần như tức thì.
+        const tokenResult = await currentUser.getIdTokenResult(true);
+        const claims = tokenResult.claims;
+
+        // Xây dựng userProfile từ thông tin cơ bản và custom claims
+        const profile: UserProfile = {
+          displayName: currentUser.displayName ?? undefined,
+          email: currentUser.email ?? undefined,
+          role: claims.role as 'admin' | 'teacher' | undefined,
+        };
+        setUserProfile(profile);
       } else {
-        // User đã đăng xuất
+        // User đã đăng xuất, xóa profile
         setUserProfile(null);
       }
       setLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
+  // Logic này vẫn giữ nguyên, nhưng nguồn dữ liệu của `userProfile` đã thay đổi
   const isAdmin = userProfile?.role === 'admin';
 
-  const value = {
-    user,
-    userProfile,
-    isAdmin,
-    loading,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, userProfile, isAdmin, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

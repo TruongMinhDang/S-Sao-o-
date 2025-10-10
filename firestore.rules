@@ -2,34 +2,112 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
 
-    function isAdmin(uid) {
-      // Checks for a 'role' field in the user's document
-      return get(/databases/$(db)/documents/users/$(uid)).data.role == 'admin';
+    /* =========================
+       Helpers & Role predicates
+       ========================= */
+    function isAuth() {
+      return request.auth != null;
     }
 
-    match /rules/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isAdmin(request.auth.uid);
+    // SỬA: Đổi logic để kiểm tra claim 'role' dạng string
+    function hasRole(r) {
+      return isAuth() && request.auth.token.role != null && request.auth.token.role == r;
     }
 
-    // Allow logged-in users to read student data, only admins can write
-    match /students/{studentId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isAdmin(request.auth.uid);
+    // SỬA: Điều chỉnh tên role cho khớp với giá trị trong code của bạn
+    function isAdmin() { return hasRole('admin'); }
+    function isProctor() { return hasRole('giam_thi'); }
+    function isHomeroom() { return hasRole('homeroom_teacher'); }
+    function isReadOnlyBoss() {
+      return hasRole('hieu_truong') || hasRole('pho_hieu_truong') || hasRole('nhan_vien_cntt');
     }
 
-    // You might want to secure your users collection as well
+    // Lưu ý: Hàm này yêu cầu phải set thêm các claim 'homeroomClassId' và 'homeroomGradeId' cho GVCN
+    function homeroomCanView(resourceData) {
+      return isHomeroom()
+        && (
+            (resourceData.classId != null
+              && request.auth.token.homeroomClassId != null
+              && resourceData.classId == request.auth.token.homeroomClassId)
+          || (resourceData.gradeId != null
+              && request.auth.token.homeroomGradeId != null
+              && resourceData.gradeId == request.auth.token.homeroomGradeId)
+        );
+    }
+
+    function canRead(resourceData) {
+      return isAdmin()
+          || isReadOnlyBoss()
+          || isProctor()
+          || homeroomCanView(resourceData);
+    }
+
+    /* =========
+       OVERRIDE (Giữ nguyên, rất tốt!)
+       ========= */
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    /* ========
+       USERS
+       ======== */
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      // THÊM: Quy tắc tối quan trọng để trang Quản lý người dùng hoạt động
+      allow list: if isAdmin();
+
+      // Giữ nguyên các quy tắc an toàn của bạn
+      allow get: if isAuth() && request.auth.uid == uid;
+      allow create: if isAuth() && request.auth.uid == uid;
+      allow update: if isAuth()
+                    && request.auth.uid == uid
+                    && !('roles' in request.resource.data.diff(resource.data).changedKeys())
+                    && !('claims' in request.resource.data.diff(resource.data).changedKeys());
+      allow delete: if false;
     }
 
+    /* ==========
+       CLASSES
+       ========== */
+    match /classes/{classId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    /* ==========
+       STUDENTS
+       ========== */
+    match /students/{studentId} {
+      allow read: if isAuth() && canRead(resource.data);
+      allow write: if false;
+    }
+
+    /* =========
+       RECORDS
+       ========= */
     match /records/{recordId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      allow read: if isAuth() && canRead(resource.data);
+      allow create: if isAuth()
+                    && isProctor()
+                    && request.resource.data.classId is string
+                    && request.resource.data.gradeId is string;
+      allow update, delete: if isAuth() && isProctor();
     }
 
+    /* ===============
+       WEEKLY SCORES
+       =============== */
     match /weeklyScores/{scoreId} {
-      allow read, write: if request.auth != null;
+      allow read: if isAuth() && canRead(resource.data);
+      allow write: if false;
+    }
+
+    /* ======
+       RULES
+       ====== */
+    match /rules/{id} {
+      allow read: if isAuth();
+      allow write: if false;
     }
   }
 }

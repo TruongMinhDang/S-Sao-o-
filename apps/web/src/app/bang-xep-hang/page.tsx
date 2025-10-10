@@ -1,26 +1,12 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { getFirestore, doc, setDoc, collection, query, where, onSnapshot, DocumentData } from 'firebase/firestore';
 import { app } from '@/lib/firebase-client';
@@ -92,10 +78,10 @@ const formatClassName = (classRef: string): string => {
 const createClassId = (className: string) => `class_${className.replace('/', '_')}`;
 
 const grades = [
-    { name: "Khối 6", color: "bg-red-500", classes: ["6/1", "6/2", "6/3", "6/4", "6/5", "6/6", "6/7", "6/8", "6/9", "6/10"] },
-    { name: "Khối 7", color: "bg-yellow-500", classes: ["7/1", "7/2", "7/3", "7/4", "7/5", "7/6", "7/7", "7/8"] },
-    { name: "Khối 8", color: "bg-blue-500", classes: ["8/1", "8/2", "8/3", "8/4", "8/5", "8/6", "8/7"] },
-    { name: "Khối 9", color: "bg-green-500", classes: ["9/1", "9/2", "9/3", "9/4", "9/5", "9/6", "9/7", "9/8"] },
+    { name: "Khối 6", classes: ["6/1", "6/2", "6/3", "6/4", "6/5", "6/6", "6/7", "6/8", "6/9", "6/10"] },
+    { name: "Khối 7", classes: ["7/1", "7/2", "7/3", "7/4", "7/5", "7/6", "7/7", "7/8"] },
+    { name: "Khối 8", classes: ["8/1", "8/2", "8/3", "8/4", "8/5", "8/6", "8/7"] },
+    { name: "Khối 9", classes: ["9/1", "9/2", "9/3", "9/4", "9/5", "9/6", "9/7", "9/8"] },
 ];
 
 const tableDataStructure = [
@@ -112,7 +98,7 @@ const tableDataStructure = [
 const weeks = getWeeks();
 const initialWeek = getCurrentWeekName();
 
-// ================== MODAL COMPONENT =====================
+// ================== MODAL COMPONENT (Giữ nguyên) =====================
 function EditScoreModal({ isOpen, onClose, onSave, classData }: { isOpen: boolean, onClose: () => void, onSave: (scores: any) => void, classData: EditingClass | null }) {
     if (!isOpen || !classData) return null;
 
@@ -179,7 +165,7 @@ export default function BangXepHangPage() {
   const [isModalOpen, setModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<EditingClass | null>(null);
 
-  // Lấy điểm thủ công từ collection 'weeklyScores'
+  // Lấy điểm thủ công
   useEffect(() => {
     const weekNumber = selectedWeek.match(/\d+/)?.[0];
     if (!weekNumber) return;
@@ -197,29 +183,20 @@ export default function BangXepHangPage() {
             }
         });
         setManualScores(newManualScores);
-    }, (error) => {
-        console.error("Lỗi khi tải điểm thủ công:", error);
     });
 
     return () => unsubscribe();
   }, [selectedWeek]);
 
-  // Lấy điểm cộng/trừ từ collection 'records'
+  // Lấy điểm từ ghi nhận
   useEffect(() => {
     const weekNumberString = selectedWeek.match(/\d+/)?.[0];
     if (!weekNumberString) return;
-
     const weekNumber = parseInt(weekNumberString, 10);
-
-    // *** ĐÃ SỬA: Tạo query dựa trên trường 'week' đã được đánh index ***
-    const recordsQuery = query(
-      collection(db, "records"),
-      where("week", "==", weekNumber)
-    );
+    const recordsQuery = query(collection(db, "records"), where("week", "==", weekNumber));
 
     const unsubscribe = onSnapshot(recordsQuery, (snapshot) => {
         const newRecordScores: RecordScores = {};
-        // Khởi tạo cấu trúc điểm
         grades.forEach(g => {
             newRecordScores[g.name] = {};
             g.classes.forEach(c => {
@@ -227,54 +204,55 @@ export default function BangXepHangPage() {
             });
         });
         
-        // Lặp qua các ghi nhận từ query và tính toán điểm
         snapshot.forEach((doc) => {
             const record = doc.data();
             if (!record.classRef || !record.type) return;
-
             const gradeName = `Khối ${getGradeFromClassRef(record.classRef)}`;
             const className = formatClassName(record.classRef);
-
             if (newRecordScores[gradeName] && newRecordScores[gradeName][className]) {
                 const points = Number(record.pointsApplied || 0);
                 if (record.type === 'merit') {
                     newRecordScores[gradeName][className].diem_cong += points;
                 } else if (record.type === 'demerit') {
-                    // Điểm trừ được lưu dưới dạng số âm, ta lấy giá trị tuyệt đối
                     newRecordScores[gradeName][className].diem_tru += Math.abs(points);
                 }
             }
         });
         setRecordScores(newRecordScores);
-    }, (error) => {
-        console.error("Lỗi khi tải điểm ghi nhận:", error);
-        alert("Lỗi khi tải điểm ghi nhận. Có vẻ đã có lỗi xảy ra với query, vui lòng kiểm tra lại code.");
     });
     
     return () => unsubscribe();
   }, [selectedWeek]);
 
-  // Tính toán dữ liệu hiển thị
+  // Tính toán dữ liệu
   const displayData = useMemo(() => {
     const data: DocumentData = {};
     grades.forEach(grade => {
+        const defaultScore = grade.name === 'Khối 9' ? 330 : 340;
         const classScores: DocumentData[] = [];
         grade.classes.forEach(className => {
             const manual = manualScores[grade.name]?.[className] || {};
             const records = recordScores[grade.name]?.[className] || { diem_cong: 0, diem_tru: 0 };
-            const tong_diem = (manual.hoc_tap || 0) + (manual.ky_luat || 0) + (manual.ve_sinh || 0) + records.diem_cong - records.diem_tru;
-            classScores.push({ className, hoc_tap: manual.hoc_tap, ky_luat: manual.ky_luat, ve_sinh: manual.ve_sinh, nhan_xet: manual.nhan_xet, ...records, tong_diem });
+            const hoc_tap_score = manual.hoc_tap ?? defaultScore;
+            const ky_luat_score = manual.ky_luat ?? defaultScore;
+            const ve_sinh_score = manual.ve_sinh ?? defaultScore;
+            const tong_diem = hoc_tap_score + ky_luat_score + ve_sinh_score + records.diem_cong - records.diem_tru;
+            classScores.push({ 
+                className, 
+                hoc_tap: hoc_tap_score, 
+                ky_luat: ky_luat_score, 
+                ve_sinh: ve_sinh_score, 
+                nhan_xet: manual.nhan_xet, 
+                ...records, 
+                tong_diem 
+            });
         });
-
         classScores.sort((a, b) => b.tong_diem - a.tong_diem);
-
         data[grade.name] = {};
         let rank = 0;
         let lastScore = Infinity;
         classScores.forEach((score, index) => {
-            if (score.tong_diem < lastScore) {
-                rank = index + 1;
-            }
+            if (score.tong_diem < lastScore) rank = index + 1;
             data[grade.name][score.className] = { ...score, hang: rank };
             lastScore = score.tong_diem;
         });
@@ -282,47 +260,47 @@ export default function BangXepHangPage() {
     return data;
   }, [manualScores, recordScores]);
 
+  // Handlers
   const handleOpenModal = (gradeName: string, className: string) => {
       const scores = displayData[gradeName]?.[className] || {};
       setEditingClass({ gradeName, className, scores });
       setModalOpen(true);
   };
 
-  // Lưu điểm vào collection 'weeklyScores'
   const handleSaveScore = async (newScores: any) => {
       if (!editingClass) return;
       const { gradeName, className } = editingClass;
       const weekNumber = selectedWeek.match(/\d+/)?.[0];
       if (!weekNumber) { alert("Tuần không hợp lệ."); return; }
-      
       const classId = createClassId(className);
       const docId = `week_${weekNumber}_${classId}`;
       const docRef = doc(db, "weeklyScores", docId);
-
-      const dataToSave = {
-          week: Number(weekNumber),
-          classId: classId,
-          className: className,
-          gradeName: gradeName,
-          scores: newScores
-      };
-
+      const dataToSave = { week: Number(weekNumber), classId, className, gradeName, scores: newScores };
       try {
           await setDoc(docRef, dataToSave, { merge: true });
           setModalOpen(false);
       } catch (error) {
           console.error("Error writing document: ", error);
-          alert("Đã có lỗi xảy ra khi lưu điểm. Vui lòng thử lại.");
+          alert("Đã có lỗi xảy ra khi lưu điểm.");
       }
   };
 
+  // SỬA: Bổ sung bộ màu sắc cho từng khối
+  const gradeColorSchemes: { [key: string]: { text: string; border: string; bg: string } } = {
+    "Khối 6": { text: 'text-red-700', border: 'border-red-300', bg: 'bg-red-50' },
+    "Khối 7": { text: 'text-yellow-700', border: 'border-yellow-400', bg: 'bg-yellow-50' },
+    "Khối 8": { text: 'text-blue-700', border: 'border-blue-300', bg: 'bg-blue-50' },
+    "Khối 9": { text: 'text-green-700', border: 'border-green-300', bg: 'bg-green-50' },
+  };
+
+// ================== PHẦN GIAO DIỆN MỚI =====================
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 md:p-8 bg-gray-50 min-h-screen">
       <EditScoreModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} onSave={handleSaveScore} classData={editingClass} />
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Bảng Xếp Hạng Thi Đua</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 sm:mb-0">Bảng Xếp Hạng Thi Đua</h1>
         <Select onValueChange={setSelectedWeek} value={selectedWeek}>
-          <SelectTrigger className="w-[280px]">
+          <SelectTrigger className="w-full sm:w-[320px] bg-white shadow-sm border-gray-300">
             <SelectValue placeholder="Chọn tuần" />
           </SelectTrigger>
           <SelectContent className="max-h-96 bg-white">
@@ -330,76 +308,79 @@ export default function BangXepHangPage() {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-8">
-        {grades.map((grade) => (
-          <Card key={grade.name} className="hover:shadow-lg transition-shadow duration-300 border">
-            <CardHeader className={`text-white rounded-t-lg ${grade.color}`}>
-              <CardTitle>{grade.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table className="border-collapse border border-slate-400">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[100px] border border-slate-300">TUẦN</TableHead>
-                    <TableHead className="border border-slate-300">NỘI DUNG</TableHead>
-                    {grade.classes.map((className) => (
-                      <TableHead key={className} className="border border-slate-300 text-center">
-                        {className}
-                        <Button variant="ghost" size="sm" className="ml-1 h-6 w-6 p-0" onClick={() => handleOpenModal(grade.name, className)}>
-                           ✏️
-                        </Button>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tableDataStructure.map((row, index) => (
-                    <TableRow key={row.key}>
-                      {index === 0 && (
-                        <TableCell rowSpan={tableDataStructure.length} className="align-top font-bold text-lg border border-slate-300 text-center">
-                          {selectedWeek.match(/\d+/)?.[0]}
-                        </TableCell>
-                      )}
-                      <TableCell className="border border-slate-300">{row.label}</TableCell>
+
+      <div className="flex flex-col gap-12">
+        {grades.map((grade) => {
+          // SỬA: Lấy màu sắc tương ứng với khối
+          const colors = gradeColorSchemes[grade.name] || gradeColorSchemes["Khối 9"];
+          
+          return (
+            // SỬA: Thêm hiệu ứng hover
+            <div key={grade.name} className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
+              {/* SỬA: Áp dụng màu cho tiêu đề */}
+              <h2 className={`text-xl sm:text-2xl font-bold text-center ${colors.text} mb-6`}>
+                SƠ KẾT HÀNG TUẦN - {grade.name.toUpperCase()}
+              </h2>
+              <div className="overflow-x-auto">
+                {/* SỬA: Áp dụng màu cho viền bảng */}
+                <div className={`grid border-l border-t ${colors.border}`} style={{ gridTemplateColumns: `minmax(120px, 1.5fr) repeat(${grade.classes.length}, minmax(90px, 1fr))` }}>
+                  
+                  {/* SỬA: Áp dụng màu cho header */}
+                  <div className={`font-bold text-gray-700 p-3 border-r border-b ${colors.border} ${colors.bg} flex items-center justify-start`}>NỘI DUNG</div>
+                  {grade.classes.map((className) => (
+                    <div key={className} className={`font-bold text-gray-800 p-3 border-r border-b ${colors.border} ${colors.bg} flex items-center justify-center relative group`}>
+                      {className}
+                      <Button variant="ghost" size="sm" className="ml-1 h-6 w-6 p-0 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleOpenModal(grade.name, className)}>
+                         ✏️
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {tableDataStructure.map((row) => (
+                    <>
+                      {/* SỬA: Áp dụng màu cho viền cột đầu tiên */}
+                      <div key={row.key} className={`font-semibold p-3 border-r border-b ${colors.border} flex items-center ${row.key === 'hang' ? 'bg-yellow-100 text-yellow-900' : 'bg-white'}`}>
+                        {row.label}
+                      </div>
                       {grade.classes.map((className) => {
                         const data = displayData[grade.name]?.[className];
                         const value = data?.[row.key] ?? (row.key === 'nhan_xet' ? '' : 0);
+                        
+                        let displayValue: any = value;
+                        // SỬA: Áp dụng màu cho viền các ô dữ liệu
+                        let cellClasses = `p-3 text-center border-r border-b ${colors.border} flex items-center justify-center font-medium`;
 
-                        const classes = ['border', 'border-slate-300', 'text-center', 'font-medium'];
-                        let displayValue = value;
-
-                        switch (row.key) {
-                            case 'diem_cong':
-                                if (value > 0) {
-                                    classes.push('text-green-600', 'font-bold');
-                                    displayValue = `+${value}`;
-                                }
-                                break;
-                            case 'diem_tru':
-                                if (value > 0) {
-                                    classes.push('text-red-600', 'font-bold');
-                                    displayValue = `-${value}`;
-                                }
-                                break;
-                            case 'tong_diem':
-                            case 'hang':
-                                classes.push('font-bold');
-                                break;
+                        if (row.key === 'hang') {
+                          cellClasses += ' bg-yellow-200 font-bold text-yellow-900';
                         }
-
+                        if (row.key === 'diem_cong' && value > 0) {
+                          displayValue = `+${value}`;
+                          cellClasses += ' text-green-600 font-bold';
+                        }
+                        if (row.key === 'diem_tru' && value > 0) {
+                          displayValue = `-${value}`;
+                          cellClasses += ' text-red-600 font-bold';
+                        }
+                        if(row.key === 'tong_diem'){
+                           cellClasses += ' font-bold text-blue-800';
+                        }
+                        if (row.editable) {
+                           cellClasses += ' cursor-pointer hover:bg-gray-100 transition-colors';
+                        }
+                        
                         return (
-                            <TableCell key={className} className={classes.join(' ')}>
-                                {displayValue}
-                            </TableCell>
+                          <div key={className} className={cellClasses} onClick={() => row.editable && handleOpenModal(grade.name, className)}>
+                            {displayValue}
+                          </div>
                         );
                       })}
-                    </TableRow>
+                    </>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
