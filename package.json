@@ -33,5 +33,9 @@
     "npm": "^11.6.1",
     "react-day-picker": "^9.11.0",
     "recharts": "^3.2.1"
+  },
+  "devDependencies": {
+    "firebase-admin": "^13.5.0",
+    "ts-node": "^10.9.2"
   }
 }
