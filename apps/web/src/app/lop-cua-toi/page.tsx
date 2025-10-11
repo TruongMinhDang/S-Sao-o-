@@ -32,7 +32,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 // ================== HELPERS =====================
 const TERM_START = new Date(2025, 8, 8);
@@ -147,12 +147,19 @@ export default function MyClassPage() {
 
   // Fetch all violations and scores for the managed classes
   useEffect(() => {
-    if (authLoading || !user || managedClasses.length === 0) return;
+    if (authLoading || !user || managedClasses.length === 0) {
+      if (!authLoading && !isAdmin) setDataLoading(false); // Stop loading if not admin and no classes
+      return;
+    }
 
     setDataLoading(true);
     
-    const violationsQuery = query(collection(db, 'records'), where('classRef', 'in', managedClasses.slice(0, 30)));
-    const scoresQuery = query(collection(db, 'weeklyScores'), where('classId', 'in', managedClasses.slice(0, 30)));
+    // We fetch up to 30 classes, which is a Firestore `in` query limitation.
+    // For a school, this should be sufficient. If more is needed, multiple queries would be required.
+    const classQueryChunk = managedClasses.length > 0 ? managedClasses.slice(0, 30) : [' ']; // Use dummy value if no classes
+    
+    const violationsQuery = query(collection(db, 'records'), where('classRef', 'in', classQueryChunk));
+    const scoresQuery = query(collection(db, 'weeklyScores'), where('classId', 'in', classQueryChunk));
 
     const unsubViolations = onSnapshot(violationsQuery, (snapshot) => {
         setAllViolations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Violation)));
@@ -171,22 +178,20 @@ export default function MyClassPage() {
       unsubViolations();
       unsubScores();
     };
-  }, [authLoading, user, managedClasses]);
+  }, [authLoading, user, isAdmin, managedClasses]);
   
-  // Filter data for display based on selections
-  const { filteredViolations, chartData, weeklyStats } = useMemo(() => {
+  // Filter data for display based on selections (for stats and table)
+  const { filteredViolations, weeklyStats } = useMemo(() => {
     const targetClass = selectedClass;
 
-    const filteredViolations = allViolations.filter(v => 
-        v.classRef === targetClass && 
-        String(v.week ?? getWeekFromDate(v.recordDate)) === selectedWeek
-    ).sort((a,b) => b.recordDate.seconds - a.recordDate.seconds);
-    
-    // Calculate weekly stats
     const weeklyViolations = allViolations.filter(v => 
         v.classRef === targetClass && 
         String(v.week ?? getWeekFromDate(v.recordDate)) === selectedWeek
     );
+
+    const sortedViolations = [...weeklyViolations].sort((a,b) => b.recordDate.seconds - a.recordDate.seconds);
+    
+    // Calculate weekly stats
     const totalPoints = weeklyViolations.reduce((sum, v) => sum + Number(v.pointsApplied || 0), 0);
     const totalMerit = weeklyViolations.filter(v => v.type === 'merit').reduce((sum, v) => sum + Number(v.pointsApplied || 0), 0);
     const totalDemerit = weeklyViolations.filter(v => v.type === 'demerit').reduce((sum, v) => sum + Number(v.pointsApplied || 0), 0);
@@ -195,44 +200,59 @@ export default function MyClassPage() {
       if(v.ruleRef && v.type === 'demerit') { acc[v.ruleRef] = (acc[v.ruleRef] || 0) + 1; }
       return acc;
     }, {} as Record<string, number>);
-    let commonErrorCode = 'Không có'; let maxCount = 0;
+
+    let commonErrorCode = 'Không có';
+    let maxCount = 0;
     for (const errorCode in errorCounts) {
       if (errorCounts[errorCode] > maxCount) {
-        commonErrorCode = errorCode; maxCount = errorCounts[errorCode];
+        commonErrorCode = errorCode;
+        maxCount = errorCounts[errorCode];
       }
     }
     const weeklyStats = { totalPoints, totalMerit, totalDemerit, commonError: getRuleDescription(commonErrorCode, rules) };
 
-    // Prepare chart data
-    const gradeName = getGradeFromClass(targetClass);
-    const initialScore = gradeName === '9' ? 990 : 1020;
-    const scoresByWeek: {[week: number]: number} = {};
+    return { filteredViolations: sortedViolations, weeklyStats };
+  }, [selectedClass, selectedWeek, allViolations, rules]);
 
-    allWeeklyScores
-      .filter(s => s.classId === targetClass)
-      .forEach(s => {
-        const baseScore = (s.scores?.hoc_tap ?? 0) + (s.scores?.ky_luat ?? 0) + (s.scores?.ve_sinh ?? 0);
-        scoresByWeek[s.week] = (scoresByWeek[s.week] || 0) + baseScore;
+  // Prepare chart data (independent of selectedWeek)
+  const chartData = useMemo(() => {
+      const targetClass = selectedClass;
+      if (targetClass === 'all') return [];
+
+      const gradeName = getGradeFromClass(targetClass);
+      const initialScore = gradeName === '9' ? 990 : 1020;
+      const scoresByWeek: { [week: number]: number } = {};
+
+      allWeeklyScores
+          .filter(s => s.classId === targetClass)
+          .forEach(s => {
+              const defaultScore = s.gradeName === 'Khối 9' ? 330 : 340;
+              const baseScore = (s.scores?.hoc_tap ?? defaultScore) + (s.scores?.ky_luat ?? defaultScore) + (s.scores?.ve_sinh ?? defaultScore);
+              scoresByWeek[s.week] = (scoresByWeek[s.week] || 0) + baseScore;
+          });
+
+      allViolations
+          .filter(v => v.classRef === targetClass)
+          .forEach(v => {
+              const week = v.week ?? getWeekFromDate(v.recordDate);
+              scoresByWeek[week] = (scoresByWeek[week] || 0) + (v.pointsApplied || 0);
+          });
+
+      let lastKnownScore: number | undefined = undefined;
+      const data = Array.from({ length: TOTAL_WEEKS }, (_, i) => {
+          const week = i + 1;
+          let currentWeekScore: number;
+          if (scoresByWeek[week] !== undefined) {
+              currentWeekScore = scoresByWeek[week];
+              lastKnownScore = currentWeekScore;
+          } else {
+              currentWeekScore = lastKnownScore !== undefined ? lastKnownScore : initialScore;
+          }
+          return { week, points: currentWeekScore };
       });
+      return data;
+  }, [selectedClass, allViolations, allWeeklyScores]);
 
-    allViolations
-      .filter(v => v.classRef === targetClass)
-      .forEach(v => {
-        const week = v.week ?? getWeekFromDate(v.recordDate);
-        scoresByWeek[week] = (scoresByWeek[week] || 0) + (v.pointsApplied || 0);
-      });
-
-    let lastScore = initialScore;
-    const chartData = Array.from({length: TOTAL_WEEKS}, (_, i) => {
-        const week = i + 1;
-        if(scoresByWeek[week] !== undefined) {
-            lastScore = scoresByWeek[week];
-        }
-        return { week, points: lastScore };
-    });
-
-    return { filteredViolations, chartData, weeklyStats };
-  }, [selectedClass, selectedWeek, allViolations, allWeeklyScores, rules]);
 
   // Admin filters
   const availableGrades = useMemo(() => Array.from(new Set(allClasses.map(getGradeFromClass).filter(Boolean))).sort((a,b) => parseInt(a) - parseInt(b)), [allClasses]);
@@ -243,7 +263,10 @@ export default function MyClassPage() {
   }, [isAdmin, selectedGrade, allClasses, managedClasses]);
   
   useEffect(() => {
-    if (isAdmin) setSelectedClass('all');
+    // Admin changing grade should reset class selection
+    if (isAdmin) {
+      setSelectedClass('all');
+    }
   }, [selectedGrade, isAdmin]);
 
   const isLoading = authLoading || dataLoading;
@@ -274,7 +297,7 @@ export default function MyClassPage() {
                       <Select onValueChange={setSelectedClass} value={selectedClass}>
                           <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn lớp" /></SelectTrigger>
                           <SelectContent>
-                            {isAdmin && <SelectItem value="all">Tất cả các lớp</SelectItem>}
+                            {isAdmin && availableClasses.length > 1 && <SelectItem value="all">-- Chọn lớp --</SelectItem>}
                             {availableClasses.map(c => <SelectItem key={c} value={c}>{formatClassName(c)}</SelectItem>)}
                           </SelectContent>
                       </Select>
@@ -293,7 +316,7 @@ export default function MyClassPage() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm tuần</CardTitle></CardHeader>
-                        <CardContent><div className={`text-2xl font-bold ${weeklyStats.totalPoints > 0 ? 'text-green-600' : 'text-red-600'}`}>{weeklyStats.totalPoints > 0 ? '+' : ''}{weeklyStats.totalPoints}</div></CardContent>
+                        <CardContent><div className={`text-2xl font-bold ${weeklyStats.totalPoints >= 0 ? 'text-green-600' : 'text-red-600'}`}>{weeklyStats.totalPoints >= 0 ? '+' : ''}{weeklyStats.totalPoints}</div></CardContent>
                     </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm cộng</CardTitle></CardHeader>
