@@ -1,8 +1,12 @@
 build:
   run: |
+    # First, install monorepo dependencies
     npm install
-    # Copy the web app to the root to work around monorepo path issues
+    # Then, copy the web app to the root to work around monorepo path issues
     cp -rT apps/web/ .
+    # Now, run install again in the root to ensure web app's dependencies are met
+    npm install 
+    # Finally, build the app from the root
     npm run build
 output:
   path: ./.next
