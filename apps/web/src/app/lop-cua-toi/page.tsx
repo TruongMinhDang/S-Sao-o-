@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { db } from '@/lib/firebase-client';
-import { collection, getDocs, query, orderBy, where, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -19,16 +19,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/context/auth-context'; // Import useAuth
+import { useAuth } from '@/context/auth-context';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-// ================== SAO CHÉP Y HỆT TỪ TRANG GHI-NHAN =====================
+// ================== HELPERS =====================
 const TERM_START = new Date(2025, 8, 8);
 const TOTAL_WEEKS = 35;
 const MS_DAY = 86400000;
 const mid = (d: Date) => { const t = new Date(d); t.setHours(0,0,0,0); return t; };
 const getWeekFromDate = (d: any) => {
   const date = d instanceof Date ? d : d?.toDate ? d.toDate() : new Date(d);
-  if (isNaN(date.getTime())) return 1; // Fallback
+  if (isNaN(date.getTime())) return 1;
   const diff = Math.floor((mid(date).getTime() - mid(TERM_START).getTime())/MS_DAY);
   return Math.max(1, Math.min(TOTAL_WEEKS, Math.floor(diff/7)+1));
 };
@@ -42,7 +55,6 @@ const getWeeksOptions = () => {
   }
   return out;
 };
-// Định dạng tên lớp để hiển thị (ví dụ: "class_6_1" → "6/1")
 const formatClassName = (className: string): string => {
   if (!className || !className.startsWith('class_')) return className;
   return className.substring('class_'.length).replace(/_/g, '/');
@@ -52,8 +64,8 @@ const getGradeFromClass = (className: string): string => {
   const match = className.match(/_(\d+)/);
   return match ? match[1] : '';
 };
-// ================== KẾT THÚC SAO CHÉP =====================
 
+// ================== TYPES =====================
 interface Violation {
   id: string;
   studentName: string;
@@ -64,6 +76,7 @@ interface Violation {
   className?: string;
   classRef?: string;
   week?: number;
+  type?: 'merit' | 'demerit';
 }
 
 const getRuleDescription = (ruleCode: string | undefined, rules: any[]) => {
@@ -78,12 +91,13 @@ const getUserName = (supervisorRef: string | undefined, users: any[]) => {
     return user ? user.displayName : supervisorRef;
 };
 
+// ================== PAGE COMPONENT =====================
 export default function MyClassPage() {
-  // Lấy thông tin người dùng hiện tại
   const { user, userProfile, isAdmin, loading: authLoading } = useAuth();
   
   const [allClasses, setAllClasses] = useState<string[]>([]);
-  const [violations, setViolations] = useState<Violation[]>([]);
+  const [allViolations, setAllViolations] = useState<Violation[]>([]);
+  const [allWeeklyScores, setAllWeeklyScores] = useState<any[]>([]);
   const [rules, setRules] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -92,11 +106,21 @@ export default function MyClassPage() {
   const weeksOptions = useMemo(getWeeksOptions, []);
   const [selectedWeek, setSelectedWeek] = useState<string>(String(getWeekFromDate(new Date())));
 
-  // State cho bộ lọc của Admin/BGH
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [selectedClass, setSelectedClass] = useState<string>('all');
+
+  const managedClasses = useMemo(() => {
+    if(isAdmin) return allClasses;
+    return userProfile?.assignedClasses || [];
+  }, [isAdmin, userProfile, allClasses]);
+
+  useEffect(() => {
+    if(!authLoading && !isAdmin && managedClasses.length > 0 && selectedClass === 'all') {
+      setSelectedClass(managedClasses[0]);
+    }
+  }, [authLoading, isAdmin, managedClasses, selectedClass]);
   
-  // Lấy dữ liệu nền (rules, users, classes)
+  // Fetch background data (rules, users, classes)
   useEffect(() => {
     const fetchInitialData = async () => {
         try {
@@ -121,199 +145,240 @@ export default function MyClassPage() {
     fetchInitialData();
   }, []);
 
-  // Truy vấn dữ liệu vi phạm dựa trên vai trò và bộ lọc
+  // Fetch all violations and scores for the managed classes
   useEffect(() => {
-    // Chờ auth và dữ liệu nền tải xong
-    if (authLoading || !user) return;
+    if (authLoading || !user || managedClasses.length === 0) return;
 
     setDataLoading(true);
-    let q: Query | null = null;
     
-    // Xác định lớp cần truy vấn
-    let targetClasses: string[] = [];
-    if (isAdmin) {
-      if (selectedClass !== 'all') {
-        targetClasses = [selectedClass];
-      } else if (selectedGrade !== 'all') {
-        targetClasses = allClasses.filter(c => getGradeFromClass(c) === selectedGrade);
-      }
-      // Nếu admin chọn all/all, không cần lọc theo classRef
-    } else if (userProfile?.assignedClasses && userProfile.assignedClasses.length > 0) {
-      targetClasses = userProfile.assignedClasses;
-    }
+    const violationsQuery = query(collection(db, 'records'), where('classRef', 'in', managedClasses.slice(0, 30)));
+    const scoresQuery = query(collection(db, 'weeklyScores'), where('classId', 'in', managedClasses.slice(0, 30)));
 
-    if (selectedWeek) {
-      const constraints = [where('week', '==', parseInt(selectedWeek, 10))];
-      if (targetClasses.length > 0) {
-        // Firestore chỉ cho phép 'in' với tối đa 30 phần tử, nếu cần hơn phải chia nhỏ query
-        constraints.push(where('classRef', 'in', targetClasses.slice(0, 30)));
-      }
-      q = query(collection(db, 'records'), ...constraints);
-    }
-    
-    if (!q) {
-      setViolations([]);
-      setDataLoading(false);
-      return;
-    }
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const violationsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Violation[];
-        setViolations(violationsData.sort((a, b) => b.recordDate.seconds - a.recordDate.seconds));
-        setError(null);
+    const unsubViolations = onSnapshot(violationsQuery, (snapshot) => {
+        setAllViolations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Violation)));
         setDataLoading(false);
     }, (err) => {
         console.error(err);
-        setError(`Không thể tải dữ liệu cho tuần ${selectedWeek}.`);
+        setError(`Không thể tải dữ liệu vi phạm.`);
         setDataLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [selectedWeek, selectedGrade, selectedClass, isAdmin, user, authLoading, userProfile, allClasses]);
+    const unsubScores = onSnapshot(scoresQuery, (snapshot) => {
+        setAllWeeklyScores(snapshot.docs.map(doc => doc.data()));
+    });
 
-  // Logic tính toán thống kê (giữ nguyên)
-  const stats = useMemo(() => {
-    const totalPoints = violations.reduce((sum, v) => sum + Number(v.pointsApplied || 0), 0);
-    const errorCounts = violations.reduce((acc, v) => {
+    return () => {
+      unsubViolations();
+      unsubScores();
+    };
+  }, [authLoading, user, managedClasses]);
+  
+  // Filter data for display based on selections
+  const { filteredViolations, chartData, weeklyStats } = useMemo(() => {
+    const targetClass = selectedClass;
+
+    const filteredViolations = allViolations.filter(v => 
+        v.classRef === targetClass && 
+        String(v.week ?? getWeekFromDate(v.recordDate)) === selectedWeek
+    ).sort((a,b) => b.recordDate.seconds - a.recordDate.seconds);
+    
+    // Calculate weekly stats
+    const weeklyViolations = allViolations.filter(v => 
+        v.classRef === targetClass && 
+        String(v.week ?? getWeekFromDate(v.recordDate)) === selectedWeek
+    );
+    const totalPoints = weeklyViolations.reduce((sum, v) => sum + Number(v.pointsApplied || 0), 0);
+    const totalMerit = weeklyViolations.filter(v => v.type === 'merit').reduce((sum, v) => sum + Number(v.pointsApplied || 0), 0);
+    const totalDemerit = weeklyViolations.filter(v => v.type === 'demerit').reduce((sum, v) => sum + Number(v.pointsApplied || 0), 0);
+
+    const errorCounts = weeklyViolations.reduce((acc, v) => {
       if(v.ruleRef && v.type === 'demerit') { acc[v.ruleRef] = (acc[v.ruleRef] || 0) + 1; }
       return acc;
     }, {} as Record<string, number>);
-
     let commonErrorCode = 'Không có'; let maxCount = 0;
     for (const errorCode in errorCounts) {
       if (errorCounts[errorCode] > maxCount) {
         commonErrorCode = errorCode; maxCount = errorCounts[errorCode];
       }
     }
-    return { totalPoints, commonError: getRuleDescription(commonErrorCode, rules) };
-  }, [violations, rules]);
-  
-  // Bộ lọc cho Admin/BGH
+    const weeklyStats = { totalPoints, totalMerit, totalDemerit, commonError: getRuleDescription(commonErrorCode, rules) };
+
+    // Prepare chart data
+    const gradeName = getGradeFromClass(targetClass);
+    const initialScore = gradeName === '9' ? 990 : 1020;
+    const scoresByWeek: {[week: number]: number} = {};
+
+    allWeeklyScores
+      .filter(s => s.classId === targetClass)
+      .forEach(s => {
+        const baseScore = (s.scores?.hoc_tap ?? 0) + (s.scores?.ky_luat ?? 0) + (s.scores?.ve_sinh ?? 0);
+        scoresByWeek[s.week] = (scoresByWeek[s.week] || 0) + baseScore;
+      });
+
+    allViolations
+      .filter(v => v.classRef === targetClass)
+      .forEach(v => {
+        const week = v.week ?? getWeekFromDate(v.recordDate);
+        scoresByWeek[week] = (scoresByWeek[week] || 0) + (v.pointsApplied || 0);
+      });
+
+    let lastScore = initialScore;
+    const chartData = Array.from({length: TOTAL_WEEKS}, (_, i) => {
+        const week = i + 1;
+        if(scoresByWeek[week] !== undefined) {
+            lastScore = scoresByWeek[week];
+        }
+        return { week, points: lastScore };
+    });
+
+    return { filteredViolations, chartData, weeklyStats };
+  }, [selectedClass, selectedWeek, allViolations, allWeeklyScores, rules]);
+
+  // Admin filters
   const availableGrades = useMemo(() => Array.from(new Set(allClasses.map(getGradeFromClass).filter(Boolean))).sort((a,b) => parseInt(a) - parseInt(b)), [allClasses]);
   const availableClasses = useMemo(() => {
+      if (!isAdmin) return managedClasses;
       if (selectedGrade === 'all') return allClasses;
       return allClasses.filter(c => getGradeFromClass(c) === selectedGrade);
-  }, [selectedGrade, allClasses]);
-
-  // Reset bộ lọc lớp khi đổi khối
+  }, [isAdmin, selectedGrade, allClasses, managedClasses]);
+  
   useEffect(() => {
-    setSelectedClass('all');
-  }, [selectedGrade]);
+    if (isAdmin) setSelectedClass('all');
+  }, [selectedGrade, isAdmin]);
 
   const isLoading = authLoading || dataLoading;
 
-  if (authLoading) {
-    return <div className="p-8 text-center">Đang xác thực người dùng...</div>
-  }
-  if (!user) {
-    return <div className="p-8 text-center text-red-600">Vui lòng đăng nhập để xem trang này.</div>
-  }
-  
+  if (authLoading) return <div className="p-8 text-center">Đang xác thực người dùng...</div>;
+  if (!user) return <div className="p-8 text-center text-red-600">Vui lòng đăng nhập để xem trang này.</div>;
+  if (!isAdmin && managedClasses.length === 0) return <div className="p-8 text-center text-orange-600">Tài khoản của bạn chưa được phân công lớp chủ nhiệm.</div>;
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Tổng Quan Lớp Học</h1>
+    <div className="space-y-6">
+      <Card>
+          <CardHeader>
+              <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                  <div>
+                      <CardTitle className="text-2xl">Tổng Quan Lớp Học</CardTitle>
+                      <CardDescription>Theo dõi điểm số và vi phạm của lớp qua từng tuần.</CardDescription>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                      {isAdmin && (
+                          <Select onValueChange={setSelectedGrade} value={selectedGrade}>
+                              <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn khối" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="all">Tất cả các khối</SelectItem>
+                                  {availableGrades.map(g => <SelectItem key={g} value={g}>Khối {g}</SelectItem>)}
+                              </SelectContent>
+                          </Select>
+                      )}
+                      <Select onValueChange={setSelectedClass} value={selectedClass}>
+                          <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn lớp" /></SelectTrigger>
+                          <SelectContent>
+                            {isAdmin && <SelectItem value="all">Tất cả các lớp</SelectItem>}
+                            {availableClasses.map(c => <SelectItem key={c} value={c}>{formatClassName(c)}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                      <Select onValueChange={setSelectedWeek} value={selectedWeek}>
+                          <SelectTrigger className="w-full sm:w-[280px]"><SelectValue placeholder="Chọn tuần" /></SelectTrigger>
+                          <SelectContent className="max-h-72">
+                              {weeksOptions.map(week => <SelectItem key={week.value} value={week.value}>{week.label}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+              </div>
+          </CardHeader>
 
-      <div className="mb-8 p-6 border rounded-lg shadow-sm bg-white">
-        <div className="grid md:grid-cols-3 gap-6 items-center">
-          <div>
-            <h3 className="text-sm font-medium mb-2 text-gray-500">CHỌN TUẦN</h3>
-            <Select onValueChange={setSelectedWeek} value={selectedWeek}>
-              <SelectTrigger className="bg-white text-base py-2 h-auto">
-                <SelectValue placeholder="Chọn một tuần" />
-              </SelectTrigger>
-              <SelectContent>
-                {weeksOptions.map(week => (
-                  <SelectItem key={week.value} value={week.value}>{week.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="p-4 bg-red-50 rounded-lg text-center">
-            <h3 className="text-sm font-medium text-red-800 uppercase">Tổng điểm trừ</h3>
-            <p className="text-4xl font-bold text-red-600">{stats.totalPoints}</p>
-          </div>
-          <div className="p-4 bg-yellow-50 rounded-lg text-center">
-            <h3 className="text-sm font-medium text-yellow-800 uppercase">Lỗi phổ biến</h3>
-            <p className="text-lg font-bold text-yellow-600 truncate" title={stats.commonError}>{stats.commonError}</p>
-          </div>
-        </div>
-        
-        {/* Bộ lọc dành riêng cho Admin/BGH */}
-        {isAdmin && (
-          <div className="mt-6 pt-6 border-t grid md:grid-cols-2 gap-4">
-            <div>
-              <h3 className="text-sm font-medium mb-2 text-gray-500">LỌC THEO KHỐI</h3>
-              <Select onValueChange={setSelectedGrade} value={selectedGrade}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả các khối</SelectItem>
-                  {availableGrades.map(g => <SelectItem key={g} value={g}>Khối {g}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium mb-2 text-gray-500">LỌC THEO LỚP</h3>
-              <Select onValueChange={setSelectedClass} value={selectedClass}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả các lớp</SelectItem>
-                  {availableClasses.map(c => <SelectItem key={c} value={c}>{formatClassName(c)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h3 className="text-xl font-semibold mb-3 text-gray-800">Danh Sách Vi Phạm Chi Tiết</h3>
-        {isLoading ? (
-          <div className="text-center py-10">Đang tải dữ liệu...</div>
-        ) : error ? (
-          <div className="text-center py-10 text-red-500">{error}</div>
-        ) : violations.length === 0 ? (
-            <div className="text-center py-10 text-gray-500">Không có vi phạm nào được ghi nhận.</div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]">STT</TableHead>
-                <TableHead>Thời gian</TableHead>
-                <TableHead>Họ và tên</TableHead>
-                {isAdmin && <TableHead>Lớp</TableHead>}
-                <TableHead>Nội dung vi phạm</TableHead>
-                <TableHead className="text-center">Điểm</TableHead>
-                <TableHead className="text-right">Hành động</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {violations.map((v, index) => (
-                <TableRow key={v.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>{v.recordDate ? new Date(v.recordDate.seconds * 1000).toLocaleString('vi-VN') : 'N/A'}</TableCell>
-                  <TableCell className="font-medium">{v.studentName || 'N/A'}</TableCell>
-                  {isAdmin && <TableCell>{formatClassName(v.classRef || '')}</TableCell>}
-                  <TableCell>
-                    <div>{getRuleDescription(v.ruleRef, rules)}</div>
-                    <div className="text-xs text-gray-500">Người ghi nhận: {getUserName(v.supervisorRef, users)}</div>
-                  </TableCell>
-                  <TableCell className="text-center font-semibold">
-                     <span className={ (v.pointsApplied || 0) > 0 ? 'text-green-600' : (v.pointsApplied || 0) < 0 ? 'text-red-600' : 'text-gray-500' }>
-                        {(v.pointsApplied || 0) > 0 ? '+' : ''}{v.pointsApplied || 0}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm">Chi tiết</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+          {selectedClass !== 'all' && (
+            <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm tuần</CardTitle></CardHeader>
+                        <CardContent><div className={`text-2xl font-bold ${weeklyStats.totalPoints > 0 ? 'text-green-600' : 'text-red-600'}`}>{weeklyStats.totalPoints > 0 ? '+' : ''}{weeklyStats.totalPoints}</div></CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm cộng</CardTitle></CardHeader>
+                        <CardContent><div className="text-2xl font-bold text-green-600">+{weeklyStats.totalMerit}</div></CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm trừ</CardTitle></CardHeader>
+                        <CardContent><div className="text-2xl font-bold text-red-600">{weeklyStats.totalDemerit}</div></CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Lỗi phổ biến</CardTitle></CardHeader>
+                        <CardContent><div className="text-md font-bold truncate" title={weeklyStats.commonError}>{weeklyStats.commonError}</div></CardContent>
+                    </Card>
+                </div>
+                <div>
+                  <CardTitle className="mb-4 text-xl">Biểu đồ Lịch sử Điểm</CardTitle>
+                  <ChartContainer config={{}} className="h-[250px] w-full">
+                      <ResponsiveContainer>
+                          <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="week" tickFormatter={(value) => `T${value}`} />
+                              <YAxis domain={['dataMin - 50', 'dataMax + 50']} />
+                              <ChartTooltip content={<ChartTooltipContent />} />
+                              <Line type="monotone" dataKey="points" stroke="#8884d8" strokeWidth={2} dot={false} name="Tổng điểm" />
+                          </LineChart>
+                      </ResponsiveContainer>
+                  </ChartContainer>
+                </div>
+            </CardContent>
+          )}
+      </Card>
+      
+      {selectedClass !== 'all' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Danh Sách Vi Phạm Chi Tiết (Tuần {selectedWeek})</CardTitle>
+            <CardDescription>Các vi phạm của lớp <span className="font-bold">{formatClassName(selectedClass)}</span> trong tuần đã chọn.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-10">Đang tải dữ liệu...</div>
+            ) : error ? (
+              <div className="text-center py-10 text-red-500">{error}</div>
+            ) : filteredViolations.length === 0 ? (
+                <div className="text-center py-10 text-gray-500">Không có vi phạm nào được ghi nhận trong tuần này.</div>
+            ) : (
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]">STT</TableHead>
+                      <TableHead>Thời gian</TableHead>
+                      <TableHead>Họ và tên</TableHead>
+                      <TableHead>Nội dung vi phạm</TableHead>
+                      <TableHead className="text-center">Điểm</TableHead>
+                      <TableHead className="text-right">Hành động</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredViolations.map((v, index) => (
+                      <TableRow key={v.id}>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>{v.recordDate ? new Date(v.recordDate.seconds * 1000).toLocaleString('vi-VN') : 'N/A'}</TableCell>
+                        <TableCell className="font-medium">{v.studentName || 'N/A'}</TableCell>
+                        <TableCell>
+                          <div>{getRuleDescription(v.ruleRef, rules)}</div>
+                          <div className="text-xs text-gray-500">Người ghi nhận: {getUserName(v.supervisorRef, users)}</div>
+                        </TableCell>
+                        <TableCell className="text-center font-semibold">
+                          <span className={ (v.pointsApplied || 0) > 0 ? 'text-green-600' : (v.pointsApplied || 0) < 0 ? 'text-red-600' : 'text-gray-500' }>
+                              {(v.pointsApplied || 0) > 0 ? '+' : ''}{v.pointsApplied || 0}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm">Chi tiết</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
