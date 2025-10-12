@@ -29,9 +29,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.22",
-    "install": "^0.13.0",
     "lucide-react": "^0.545.0",
-    "npm": "^11.6.1",
     "react-day-picker": "^9.11.0",
     "recharts": "^3.2.1",
     "tailwind-variants": "^3.1.1"
