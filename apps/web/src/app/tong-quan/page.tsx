@@ -1,254 +1,112 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase-client';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-} from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import Link from 'next/link';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Users, ClipboardList, Trophy, BookCheck, Shield, User, BarChart3 } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
 
-// ================== TYPES =====================
-interface WeeklyScore {
-  id: string;
-  week: number;
-  classId: string;
-  className: string;
-  gradeName: string;
-  scores: {
-    hoc_tap?: number;
-    ky_luat?: number;
-    ve_sinh?: number;
-  };
-  totalPoints?: number;
-}
-
-interface RecordScore {
-  week: number;
-  classRef: string;
-  pointsApplied: number;
-  type: 'merit' | 'demerit';
-}
-
-// ================== HELPERS =====================
-const getGradeFromClassRef = (classRef: string): string => {
-  const match = classRef.match(/class_(\d+)_/);
-  return match ? `Khối ${match[1]}` : '';
-};
-const formatClassName = (classRef: string): string => {
-  return classRef.substring('class_'.length).replace(/_/g, '/');
-};
-
-const grades = ['Khối 6', 'Khối 7', 'Khối 8', 'Khối 9'];
-const WEEKS_IN_SEMESTER = 35; // Tổng số tuần trong năm học
-const availableWeeks = Array.from({ length: WEEKS_IN_SEMESTER }, (_, i) => String(i + 1));
-const CLASS_COLORS = [
-  '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-  '#FF9F40', '#C9CBCF', '#E7E9ED', '#8A2BE2', '#5F9EA0'
+const features = [
+  {
+    title: 'Lớp của tôi',
+    description: 'Xem điểm số chi tiết, lịch sử vi phạm và thành tích của lớp bạn chủ nhiệm.',
+    href: '/lop-cua-toi',
+    icon: <Users className="h-8 w-8 text-sky-600" />,
+    access: 'teacher',
+    color: 'text-sky-600',
+  },
+  {
+    title: 'Ghi nhận Thi đua',
+    description: 'Ghi nhận các điểm cộng và điểm trừ thi đua cho các lớp.',
+    href: '/ghi-nhan',
+    icon: <ClipboardList className="h-8 w-8 text-amber-600" />,
+    access: 'any',
+    color: 'text-amber-600',
+  },
+  {
+    title: 'Bảng Xếp Hạng',
+    description: 'Xem thứ hạng thi đua của tất cả các lớp trong toàn trường theo tuần.',
+    href: '/bang-xep-hang',
+    icon: <Trophy className="h-8 w-8 text-emerald-600" />,
+    access: 'any',
+    color: 'text-emerald-600',
+  },
+  {
+    title: 'Thống kê & Báo cáo',
+    description: 'Phân tích và xem các báo cáo chi tiết về tình hình thi đua toàn trường.',
+    href: '/reports', 
+    icon: <BarChart3 className="h-8 w-8 text-rose-600" />,
+    access: 'admin',
+    color: 'text-rose-600',
+  },
+  {
+    title: 'Quy Định Chấm Điểm',
+    description: 'Tra cứu danh sách các quy định, nội quy và mức điểm tương ứng.',
+    href: '/rules',
+    icon: <BookCheck className="h-8 w-8 text-indigo-600" />,
+    access: 'any',
+    color: 'text-indigo-600',
+  },
+  {
+    title: 'Quản Trị Hệ Thống',
+    description: 'Quản lý tài khoản, lớp học, khối và các cài đặt hệ thống khác.',
+    href: '/quan-tri',
+    icon: <Shield className="h-8 w-8 text-red-700" />,
+    access: 'admin',
+    color: 'text-red-700',
+  },
+  {
+    title: 'Hồ Sơ Cá Nhân',
+    description: 'Chỉnh sửa thông tin cá nhân, xem lại các hoạt động của bạn.',
+    href: '/ho-so-cua-toi',
+    icon: <User className="h-8 w-8 text-slate-600" />,
+    access: 'any',
+    color: 'text-slate-600',
+  },
 ];
 
-// ================== PAGE COMPONENT =====================
 export default function TongQuanPage() {
-  const [allScores, setAllScores] = useState<WeeklyScore[]>([]);
-  const [recordScores, setRecordScores] = useState<RecordScore[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user, isAdmin, isTeacher, loading } = useAuth();
 
-  const [selectedGrade, setSelectedGrade] = useState('Khối 9');
-  const [endWeek, setEndWeek] = useState(String(WEEKS_IN_SEMESTER));
-
-  // Fetch all weekly scores and record scores
-  useEffect(() => {
-    setLoading(true);
-
-    const scoresQuery = query(collection(db, 'weeklyScores'));
-    const recordsQuery = query(collection(db, 'records'));
-
-    const unsubScores = onSnapshot(scoresQuery, (snapshot) => {
-      const scoresData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as WeeklyScore[];
-      setAllScores(scoresData);
-    });
-
-    const unsubRecords = onSnapshot(recordsQuery, (snapshot) => {
-      const recordsData = snapshot.docs.map((doc) => doc.data() as RecordScore);
-      setRecordScores(recordsData);
-    });
-    
-    // Set loading to false after a short delay to allow data to populate
-    const timer = setTimeout(() => setLoading(false), 1500);
-
-    return () => {
-      unsubScores();
-      unsubRecords();
-      clearTimeout(timer);
-    };
-  }, []);
-
-  // Calculate total points for chart
-  const chartData = useMemo(() => {
-    if (!selectedGrade) return [];
-
-    const dataByWeek: { [week: number]: { week: number; [className: string]: number } } = {};
-    const classesInGrade = new Set<string>();
-
-    const filteredScores = allScores.filter(
-      (score) => score.gradeName === selectedGrade && score.week <= Number(endWeek)
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Tổng Quan</h1>
+          <p className="text-muted-foreground">Đang tải dữ liệu người dùng...</p>
+        </div>
+      </div>
     );
-    const filteredRecords = recordScores.filter(
-      (record) => getGradeFromClassRef(record.classRef) === selectedGrade && record.week <= Number(endWeek)
-    );
+  }
 
-    for (let w = 1; w <= Number(endWeek); w++) {
-      dataByWeek[w] = { week: w };
-    }
-
-    // Process scores
-    filteredScores.forEach((score) => {
-      const { week, className, scores } = score;
-      if (week > Number(endWeek)) return;
-
-      classesInGrade.add(className);
-      const defaultScore = score.gradeName === 'Khối 9' ? 330 : 340;
-      const basePoints =
-        (scores?.hoc_tap ?? defaultScore) +
-        (scores?.ky_luat ?? defaultScore) +
-        (scores?.ve_sinh ?? defaultScore);
-
-      if (!dataByWeek[week]) dataByWeek[week] = { week };
-      dataByWeek[week][className] = (dataByWeek[week][className] || 0) + basePoints;
-    });
-
-    // Process records (merits/demerits)
-    filteredRecords.forEach((record) => {
-      const { week, classRef, pointsApplied } = record;
-      if (week > Number(endWeek)) return;
-
-      const className = formatClassName(classRef);
-      classesInGrade.add(className);
-
-      if (!dataByWeek[week]) dataByWeek[week] = { week };
-      dataByWeek[week][className] = (dataByWeek[week][className] || 0) + pointsApplied;
-    });
-    
-    // Fill in missing data points with previous week's score or initial score
-    const sortedClasses = Array.from(classesInGrade).sort();
-    const initialScore = selectedGrade === 'Khối 9' ? 990 : 1020; // 330*3 or 340*3
-
-    for (let w = 1; w <= Number(endWeek); w++) {
-        sortedClasses.forEach(className => {
-            if(dataByWeek[w][className] === undefined) {
-                const prevWeekScore = dataByWeek[w-1]?.[className];
-                dataByWeek[w][className] = prevWeekScore !== undefined ? prevWeekScore : initialScore;
-            }
-        });
-    }
-
-    return Object.values(dataByWeek).sort((a, b) => a.week - b.week);
-  }, [selectedGrade, endWeek, allScores, recordScores]);
-
-  const classesInChart = useMemo(() => {
-    if (!chartData.length) return [];
-    return Object.keys(chartData[0]).filter((key) => key !== 'week').sort();
-  }, [chartData]);
-  
-  const chartConfig = useMemo(() => {
-    const config: { [key: string]: { label: string; color: string } } = {};
-    classesInChart.forEach((className, index) => {
-      config[className] = {
-        label: className,
-        color: CLASS_COLORS[index % CLASS_COLORS.length],
-      };
-    });
-    return config;
-  }, [classesInChart]);
+  const availableFeatures = user
+    ? features.filter(feature => {
+        if (feature.access === 'admin') return isAdmin;
+        if (feature.access === 'teacher') return isTeacher;
+        return true;
+      })
+    : [];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tổng Quan Thi Đua</h1>
-          <p className="text-muted-foreground">
-            Theo dõi và so sánh điểm số của các lớp qua từng tuần.
-          </p>
-        </div>
-        <div className="flex gap-4">
-            <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Chọn khối" />
-              </SelectTrigger>
-              <SelectContent>
-                {grades.map((g) => (
-                  <SelectItem key={g} value={g}>{g}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={endWeek} onValueChange={setEndWeek}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Xem đến tuần" />
-                </SelectTrigger>
-                <SelectContent>
-                    {availableWeeks.map(w => (
-                        <SelectItem key={w} value={w}>Đến hết tuần {w}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Tổng Quan</h1>
+        <p className="text-muted-foreground">Chọn một chức năng để bắt đầu làm việc.</p>
       </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Biểu Đồ Biến Động Điểm Thi Đua - {selectedGrade}</CardTitle>
-          <CardDescription>
-            Hiển thị tổng điểm của các lớp qua các tuần đã chọn.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {loading ? (
-                <div className="h-[400px] flex items-center justify-center text-muted-foreground">Đang tải dữ liệu biểu đồ...</div>
-            ) : chartData.length > 0 ? (
-                <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
-                    <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="week" tickFormatter={(value) => `Tuần ${value}`} />
-                        <YAxis domain={['dataMin - 50', 'dataMax + 50']} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                        {classesInChart.map((className) => (
-                        <Line
-                            key={className}
-                            type="monotone"
-                            dataKey={className}
-                            stroke={chartConfig[className]?.color || '#000'}
-                            strokeWidth={2}
-                            dot={false}
-                        />
-                        ))}
-                    </LineChart>
-                </ChartContainer>
-            ) : (
-                <div className="h-[400px] flex items-center justify-center text-muted-foreground">Không có dữ liệu cho khối hoặc tuần đã chọn.</div>
-            )}
-        </CardContent>
-      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {availableFeatures.map(feature => (
+          <Link href={feature.href} key={feature.href}>
+            <Card className="hover:shadow-lg transition-all duration-200 h-full group">
+              <CardHeader className="flex flex-col items-start gap-4">
+                {feature.icon}
+                <div>
+                  <CardTitle className={`group-hover:underline ${feature.color}`}>{feature.title}</CardTitle>
+                  <CardDescription className="mt-1">{feature.description}</CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

@@ -16,9 +16,9 @@ import {
 import {
   type ChartConfig,
   type ChartContainerProps,
-  ChartContainer,
-  type ChartStyleConfig,
-} from "tailwind-variants-chart"
+  ChartContainer as ChartContainerPrimitive,
+  ChartContext,
+} from "@/lib/tailwind-variants-chart"
 
 import { cn } from "@/lib/utils"
 import {
@@ -29,6 +29,12 @@ import {
 } from "@/components/ui/tooltip"
 
 /* -----------------------------------------------------------------------------
+ * Chart Container
+ * -------------------------------------------------------------------------- */
+
+const ChartContainer = ChartContainerPrimitive
+
+/* -----------------------------------------------------------------------------
  * Chart Tooltip
  * -------------------------------------------------------------------------- */
 
@@ -37,17 +43,13 @@ const ChartTooltip = RechartsTooltip
 type ChartTooltipContentProps = Omit<
   React.ComponentProps<typeof RechartsTooltip>["content"],
   "ref"
-> &
-  Pick<
-    React.ComponentProps<typeof TooltipContent>,
-    "side" | "align" | "sideOffset" | "alignOffset"
-  > & {
-    hideLabel?: boolean
-    hideIndicator?: boolean
-    indicator?: "line" | "dot" | "dashed"
-    labelKey?: string
-    nameKey?: string
-  }
+> & {
+  hideLabel?: boolean
+  hideIndicator?: boolean
+  indicator?: "line" | "dot" | "dashed"
+  labelKey?: string
+  nameKey?: string
+}
 
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
@@ -68,15 +70,17 @@ const ChartTooltipContent = React.forwardRef<
       color,
       nameKey,
       labelKey,
-      ...props
     },
     ref
   ) => {
     const {
       config,
       variant,
-      valueFormatter = (value) => value,
     } = React.useContext(ChartContext)
+    
+    const valueFormatter = React.useCallback((value: number) => {
+      return new Intl.NumberFormat("en-US").format(value);
+    }, []);
 
     const formattedLabel = React.useMemo(() => {
       if (hideLabel || !payload?.length) {
@@ -115,74 +119,74 @@ const ChartTooltipContent = React.forwardRef<
     }
 
     return (
-      <TooltipContent ref={ref} className={className} {...props}>
-        <div
-          className={cn(
-            "grid min-w-32 items-start gap-1.5 rounded-lg border bg-background/95 p-2.5 text-sm shadow-xl backdrop-blur-lg"
-          )}
-        >
-          {formattedLabel ? (
-            <div className={cn("font-medium", labelClassName)}>
-              {formattedLabel}
-            </div>
-          ) : null}
-          <div className="grid gap-1.5">
-            {payload.map((item, index) => {
-              const key = `${item.name}-${item.value}-${index}`
-              const itemConfig = config?.[item.name as keyof typeof config]
+      <div
+        ref={ref}
+        className={cn(
+          "grid min-w-32 items-start gap-1.5 rounded-lg border bg-background/95 p-2.5 text-sm shadow-xl backdrop-blur-lg",
+          className
+        )}
+      >
+        {formattedLabel ? (
+          <div className={cn("font-medium", labelClassName)}>
+            {formattedLabel}
+          </div>
+        ) : null}
+        <div className="grid gap-1.5">
+          {payload.map((item, index) => {
+            const key = `${item.name}-${item.value}-${index}`
+            const itemConfig = config?.[item.name as keyof typeof config]
 
-              const indicatorColor =
-                color || (item.color as string | undefined) || itemConfig?.color
+            const indicatorColor =
+              color || (item.color as string | undefined) || itemConfig?.color
 
-              return (
-                <div
-                  key={key}
-                  className={cn("flex w-full items-center gap-2 [&>svg]:size-2.5")}
-                >
-                  {hideIndicator ? null : (
-                    <div
-                      className={cn(
-                        "shrink-0 rounded-sm border border-border/50",
-                        {
-                          "h-2.5 w-2.5": indicator === "dot",
-                          "w-1": indicator === "line",
-                          "w-0 border-dashed": indicator === "dashed",
-                          "border-border": !indicatorColor,
-                        }
-                      )}
-                      style={{
-                        backgroundColor: indicatorColor,
-                      }}
-                    />
-                  )}
+            return (
+              <div
+                key={key}
+                className={cn("flex w-full items-center gap-2 [&>svg]:size-2.5")}
+              >
+                {hideIndicator ? null : (
                   <div
                     className={cn(
-                      "flex flex-1 justify-between leading-none",
-                      variant === "pie" && "items-center"
+                      "shrink-0 rounded-sm border border-border/50",
+                      {
+                        "h-2.5 w-2.5": indicator === "dot",
+                        "w-1": indicator === "line",
+                        "w-0 border-dashed": indicator === "dashed",
+                        "border-border": !indicatorColor,
+                      }
                     )}
-                  >
-                    <div className="grid gap-1.5">
-                      <span className="text-muted-foreground">
-                        {itemConfig?.label || item.name}
-                      </span>
-                      {variant === "pie" && itemConfig?.icon ? (
-                        <itemConfig.icon />
-                      ) : null}
-                    </div>
-                    {item.value ? (
-                      <span className="font-medium">
-                        {formatter
-                          ? formatter(item.value, item.name, item)
-                          : valueFormatter(item.value as number)}
-                      </span>
+                    style={{
+                      backgroundColor: indicatorColor,
+                    }}
+                  />
+                )}
+                <div
+                  className={cn(
+                    "flex flex-1 justify-between leading-none",
+                    variant === "pie" && "items-center"
+                  )}
+                >
+                  <div className="grid gap-1.5">
+                    <span className="text-muted-foreground">
+                      {itemConfig?.label || item.name}
+                    </span>
+                    {variant === "pie" && itemConfig?.icon ? (
+                      <itemConfig.icon />
                     ) : null}
                   </div>
+                  {item.value ? (
+                    <span className="font-medium">
+                      {formatter
+                        ? formatter(item.value, item.name, item)
+                        : valueFormatter(item.value as number)}
+                    </span>
+                  ) : null}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
         </div>
-      </TooltipContent>
+      </div>
     )
   }
 )
@@ -253,25 +257,6 @@ const ChartLegendContent = React.forwardRef<
 ChartLegendContent.displayName = "ChartLegendContent"
 
 /* -----------------------------------------------------------------------------
- * Chart Style
- * -------------------------------------------------------------------------- */
-
-type ChartContextProps = {
-  config: ChartConfig
-  style: ChartStyleConfig
-  variant?: "line" | "bar" | "pie"
-  valueFormatter: (value: number) => string
-}
-
-const ChartContext = React.createContext<ChartContextProps>({
-  config: {},
-  style: {
-    label: {},
-  },
-  valueFormatter: (value) => value.toString(),
-})
-
-/* -----------------------------------------------------------------------------
  * Pie Chart
  * -------------------------------------------------------------------------- */
 
@@ -290,7 +275,7 @@ const PieChart = React.forwardRef<
         valueFormatter: valueFormatter || ((value) => value.toString()),
       }}
     >
-      <ChartContainer
+      <ChartContainerPrimitive
         ref={ref}
         config={config}
         style={style}
@@ -298,7 +283,7 @@ const PieChart = React.forwardRef<
         {...props}
       >
         <RechartsPieChart>{children}</RechartsPieChart>
-      </ChartContainer>
+      </ChartContainerPrimitive>
     </ChartContext.Provider>
   )
 })
@@ -469,6 +454,7 @@ const PieChartSector = React.forwardRef<
 PieChartSector.displayName = "PieChartSector"
 
 export {
+  ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   ChartLegend,
