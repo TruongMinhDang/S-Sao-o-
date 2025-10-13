@@ -1,27 +1,18 @@
-build:
-  run: |
-    # First, install monorepo dependencies
-    npm install
-    # Then, copy the web app to the root to work around monorepo path issues
-    cp -rT apps/web/ .
-    # Now, run install again in the root to ensure web app's dependencies are met
-    npm install 
-    # Finally, build the app from the root
-    npm run build
-output:
-  path: ./.next
+
+run:
+  build: npm run build
+  start: npm run start
+  # Set the following environment variables in your App Hosting backend.
+  # https://firebase.google.com/docs/app-hosting/configure-backend?#environment-variables
 env:
-  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: 'AIzaSyAqGxdFqDGXOiiKP5cKFvPkNkmTdY4aByw'
-  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: 'app-quan-ly-hs.firebaseapp.com'
-  - variable: NEXT_PUBLIC_FIREBASE_DATABASE_URL
-    value: 'https://app-quan-ly-hs-default-rtdb.asia-southeast1.firebasedatabase.app'
-  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: 'app-quan-ly-hs'
-  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: 'app-quan-ly-hs.appspot.com'
-  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: '771200825229'
-  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: '1:771200825229:web:bdffe0944b21edff21afc4'
+  - variable: FIREBASE_PROJECT_ID
+    # This is an example of a secret stored in Secret Manager.
+    # Before deploying, create a secret with the name "firebase-project-id"
+    # and grant the principle "firebase-app-hosting-run-sa" the "Secret Manager Secret Accessor" role.
+    #
+    # https://firebase.google.com/docs/app-hosting/configure-backend?#secret-manager
+    secret: firebase-project-id
+  - variable: FIREBASE_CLIENT_EMAIL
+    secret: firebase-client-email
+  - variable: FIREBASE_PRIVATE_KEY
+    secret: firebase-private-key
