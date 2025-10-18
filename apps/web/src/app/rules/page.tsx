@@ -18,7 +18,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { type User } from 'firebase/auth';
-import { db as defaultDb, auth } from '@/lib/firebase.client';
+import { db as defaultDb, auth } from '@/lib/firebase.client'; // Sửa đường dẫn nếu cần
 
 import { Button } from '@/components/ui/button';
 import {
@@ -33,16 +33,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Kiểu dữ liệu
 type Rule = {
   id: string;
   code: string;
   category: string;
-  // Dùng cho cả đọc và ghi
   description: string;
   points: number;
   type: 'merit' | 'demerit';
-  // Chỉ dùng để đọc dữ liệu cũ (tương thích ngược)
   content?: string | null;
   score?: number | null;
   order?: number | null;
@@ -51,16 +48,14 @@ type Rule = {
 
 const ruleConverter: FirestoreDataConverter<Rule> = {
   toFirestore(rule: PartialWithFieldValue<Rule>) {
-    // Luôn ghi theo cấu trúc mới, loại bỏ các trường cũ
     const data: any = {
       category: rule.category,
       code: rule.code,
       description: rule.description,
       points: rule.points,
       type: rule.type,
-      updatedAt: serverTimestamp(), // đồng bộ giờ máy chủ
+      updatedAt: serverTimestamp(),
     };
-    // Xoá các trường không cần thiết
     delete data.id;
     delete data.content;
     delete data.score;
@@ -69,7 +64,6 @@ const ruleConverter: FirestoreDataConverter<Rule> = {
   },
   fromFirestore(snap) {
     const d = snap.data();
-    // Ưu tiên đọc trường mới, nếu không có thì dùng trường cũ
     const description = String(d.description ?? d.content ?? '');
     const rawPoints = d.points ?? d.score ?? 0;
     const points = typeof rawPoints === 'number' ? rawPoints : Number(rawPoints) || 0;
@@ -88,8 +82,8 @@ const ruleConverter: FirestoreDataConverter<Rule> = {
       description,
       points,
       type: resolvedType,
-      content: description, // Gán lại để tương thích
-      score: points, // Gán lại để tương thích
+      content: description,
+      score: points,
       order: typeof d.order === 'number' ? d.order : null,
       updatedAt: d.updatedAt ?? null,
     };
@@ -102,7 +96,6 @@ function ScoreBadge({ score }: { score: number }) {
   return <span className={cls}>{text}</span>;
 }
 
-// State mặc định cho nội quy mới hoặc đang sửa
 const defaultRuleState: Pick<Rule, 'category' | 'description' | 'points' | 'type'> = {
   category: '',
   description: '',
@@ -189,17 +182,15 @@ export default function RulesPage() {
         description: String(currentRule.description),
         points,
         type,
-        code: String(currentRule.code ?? ''), // sẽ ghi đè dưới nếu thêm mới
+        code: String(currentRule.code ?? ''),
         updatedAt: serverTimestamp(),
       };
 
       if (currentRule.id) {
-        // Cập nhật
         const ruleRef = doc(db, 'rules', currentRule.id);
-        const { code, ...partial } = dataToSave; // tránh vô tình đổi code khi sửa
+        const { code, ...partial } = dataToSave;
         await updateDoc(ruleRef, partial as PartialWithFieldValue<Rule>);
       } else {
-        // Thêm mới: sinh code tiếp nối từ bản cuối theo sort hiện có
         let newCode = 'VP001';
         if (rules.length > 0) {
           const lastCode = rules[rules.length - 1].code || '';
@@ -213,7 +204,7 @@ export default function RulesPage() {
             console.warn('Unexpected code format', lastCode);
           }
         }
-        const rulesCollection = collection(db, 'rules').withConverter(ruleConverter);
+        const rulesCollection = collection(db, 'rules'); // <--- ĐÃ SỬA CHỖ NÀY
         await addDoc(rulesCollection, { ...dataToSave, code: newCode });
       }
       setIsDialogOpen(false);
@@ -244,7 +235,6 @@ export default function RulesPage() {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    // Select trả về string; ta cast về union cho đúng ý
     setCurrentRule((prev) => ({ ...prev, [name]: value as 'merit' | 'demerit' }));
   };
 
