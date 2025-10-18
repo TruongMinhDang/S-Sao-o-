@@ -27,7 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PlusCircle } from 'lucide-react'
+import { AddStudentDialog } from './add-student-dialog'
+import Link from 'next/link'
 
 interface Student {
   id: string
@@ -66,7 +67,7 @@ export default function HocSinhPage() {
       collection(db, 'students'),
       (snapshot) => {
         const data = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
-          const d = doc.data() as any // Use any to be flexible with DB fields
+          const d = doc.data() as any
           return {
             id: doc.id,
             studentId: d.schoolId ?? 'N/A',
@@ -89,19 +90,16 @@ export default function HocSinhPage() {
     return unsubscribe
   }, [])
 
-  // Tạo bộ sắp xếp tự nhiên cho lớp (class_6_1, class_7_1, class_10_1)
   const collator = useMemo(
     () => new Intl.Collator('vi', { numeric: true, sensitivity: 'base' }),
     []
   )
 
-  // Lọc ra danh sách khối
   const availableGrades = useMemo(() => {
     const grades = new Set(allStudents.map((s) => getGradeFromClass(s.class)).filter(Boolean))
     return ['all', ...Array.from(grades).sort((a, b) => parseInt(a) - parseInt(b))]
   }, [allStudents])
 
-  // Lọc ra danh sách lớp theo khối
   const availableClasses = useMemo(() => {
     let filtered = allStudents
     if (khoiFilter !== 'all') {
@@ -111,7 +109,6 @@ export default function HocSinhPage() {
     return ['all', ...Array.from(classes).sort(collator.compare)]
   }, [allStudents, khoiFilter, collator])
 
-  // Dữ liệu sau khi lọc
   const filteredStudents = useMemo(() => {
     let temp = allStudents
     if (khoiFilter !== 'all') {
@@ -129,7 +126,6 @@ export default function HocSinhPage() {
     return temp
   }, [allStudents, khoiFilter, lopFilter, searchTerm])
 
-  // Reset lớp khi đổi khối
   useEffect(() => setLopFilter('all'), [khoiFilter])
 
   return (
@@ -141,13 +137,10 @@ export default function HocSinhPage() {
             Thêm, sửa và quản lý tất cả học sinh trong hệ thống.
           </p>
         </div>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Thêm Học Sinh Mới
-        </Button>
+        <AddStudentDialog />
       </div>
 
-      <Card>
+      <Card className="bg-card">
         <CardHeader>
           <CardTitle>Danh Sách Học Sinh</CardTitle>
           <CardDescription>
@@ -242,8 +235,8 @@ export default function HocSinhPage() {
                       <TableCell>{s.totalPlusPoints}</TableCell>
                       <TableCell>{s.totalMinusPoints}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
-                          Chi tiết
+                        <Button asChild variant="ghost" size="sm">
+                           <Link href={`/hoc-sinh/${s.id}`}>Chi tiết</Link>
                         </Button>
                       </TableCell>
                     </TableRow>

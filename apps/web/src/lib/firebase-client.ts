@@ -7,7 +7,17 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
-import { firebaseConfig } from "./firebase-config"; // Sử dụng cấu hình từ file riêng
+
+// Gộp config trực tiếp vào đây để đảm bảo không có lỗi import
+const firebaseConfig = {
+  apiKey: "AIzaSyAqGxdFqDGXOiiKP5cKFvPkNkmTdY4aByw",
+  authDomain: "app-quan-ly-hs.firebaseapp.com",
+  projectId: "app-quan-ly-hs",
+  storageBucket: "app-quan-ly-hs.appspot.com",
+  messagingSenderId: "771200825229",
+  appId: "1:771200825229:web:cbc5498073eff6be21afc4",
+};
+
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
