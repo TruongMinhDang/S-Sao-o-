@@ -368,12 +368,9 @@ export default function MyClassPage() {
                     <YAxis domain={[yDomain.min, yDomain.max]} allowDecimals={false} />
                     {/* ĐÃ SỬA: Tooltip dùng ChartTooltipContent với valueFormatter rõ ràng */}
                     <ChartTooltip
-                      content={
-                        <ChartTooltipContent
-                          valueFormatter={(value: any) => `${value} điểm`}
-                          labelFormatter={(label: any) => `Tuần ${label}`}
-                        />
-                      }
+                      formatter={(value: any) => `${value} điểm`}
+                      labelFormatter={(label: any) => `Tuần ${label}`}
+                      content={<ChartTooltipContent />}
                     />
                     <Line type="monotone" dataKey="points" stroke="#8884d8" strokeWidth={2} dot={false} name="Tổng điểm" />
                   </LineChart>
