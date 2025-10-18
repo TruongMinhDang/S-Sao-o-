@@ -366,11 +366,11 @@ export default function MyClassPage() {
                     <XAxis dataKey="week" tickFormatter={(value) => `T${value}`} />
                     {/* ĐÃ SỬA: Miền Y tự thích ứng có đệm */}
                     <YAxis domain={[yDomain.min, yDomain.max]} allowDecimals={false} />
-                    {/* ĐÃ SỬA: Tooltip dùng ChartTooltipContent với formatter rõ ràng */}
+                    {/* ĐÃ SỬA: Tooltip dùng ChartTooltipContent với valueFormatter rõ ràng */}
                     <ChartTooltip
                       content={
                         <ChartTooltipContent
-                          formatter={(value: any) => `${value} điểm`}
+                          valueFormatter={(value: any) => `${value} điểm`}
                           labelFormatter={(label: any) => `Tuần ${label}`}
                         />
                       }
