@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState } from 'react'
@@ -62,9 +61,13 @@ export function AddStudentDialog() {
       setIsOpen(false)
     } catch (error) {
       console.error('Lỗi khi thêm học sinh:', error)
+      let errorMessage = 'Đã xảy ra lỗi không xác định.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       toast({
         title: 'Lỗi',
-        description: `Không thể thêm học sinh. Vui lòng thử lại. Lỗi: ${error.message}`,
+        description: `Không thể thêm học sinh. Vui lòng thử lại. Lỗi: ${errorMessage}`,
         variant: 'destructive',
       })
     } finally {
@@ -135,4 +138,4 @@ export function AddStudentDialog() {
       </DialogContent>
     </Dialog>
   )
-}
+}git add .
