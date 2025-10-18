@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PlusCircle } from 'lucide-react'
-import { collection, addDoc } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase-client'
 import { useToast } from '@/hooks/use-toast'
 
@@ -34,7 +34,11 @@ export function AddStudentDialog() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !studentId || !className) {
+    const fullName = name.trim()
+    const schoolId = studentId.trim()
+    const classRef = className.trim()
+
+    if (!fullName || !schoolId || !classRef) {
       toast({
         title: 'Lỗi',
         description: 'Vui lòng điền đầy đủ thông tin.',
@@ -46,25 +50,20 @@ export function AddStudentDialog() {
     setIsSaving(true)
     try {
       await addDoc(collection(db, 'students'), {
-        fullName: name,
-        schoolId: studentId,
-        classRef: className,
+        fullName,
+        schoolId,
+        classRef,
         totalMeritPoints: 0,
         totalDemeritPoints: 0,
+        createdAt: serverTimestamp(),
       })
 
-      toast({
-        title: 'Thành công',
-        description: 'Đã thêm học sinh mới.',
-      })
+      toast({ title: 'Thành công', description: 'Đã thêm học sinh mới.' })
       resetForm()
       setIsOpen(false)
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Lỗi khi thêm học sinh:', error)
-      let errorMessage = 'Đã xảy ra lỗi không xác định.';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
+      const errorMessage = error instanceof Error ? error.message : String(error)
       toast({
         title: 'Lỗi',
         description: `Không thể thêm học sinh. Vui lòng thử lại. Lỗi: ${errorMessage}`,
@@ -83,6 +82,7 @@ export function AddStudentDialog() {
           Thêm Học Sinh Mới
         </Button>
       </DialogTrigger>
+
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -91,23 +91,22 @@ export function AddStudentDialog() {
               Nhập thông tin chi tiết của học sinh mới. Nhấn "Lưu" để hoàn tất.
             </DialogDescription>
           </DialogHeader>
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Họ và Tên
-              </Label>
+              <Label htmlFor="name" className="text-right">Họ và Tên</Label>
               <Input
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => setName(e.g.et.value)}
                 placeholder="Nguyễn Văn A"
                 className="col-span-3"
+                autoFocus
               />
             </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="studentId" className="text-right">
-                Mã số HS
-              </Label>
+              <Label htmlFor="studentId" className="text-right">Mã số HS</Label>
               <Input
                 id="studentId"
                 value={studentId}
@@ -116,10 +115,9 @@ export function AddStudentDialog() {
                 className="col-span-3"
               />
             </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="class" className="text-right">
-                Lớp
-              </Label>
+              <Label htmlFor="class" className="text-right">Lớp</Label>
               <Input
                 id="class"
                 value={className}
@@ -129,8 +127,9 @@ export function AddStudentDialog() {
               />
             </div>
           </div>
+
           <DialogFooter>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving} aria-busy={isSaving}>
               {isSaving ? 'Đang lưu...' : 'Lưu'}
             </Button>
           </DialogFooter>
@@ -138,4 +137,4 @@ export function AddStudentDialog() {
       </DialogContent>
     </Dialog>
   )
-}git add .
+}
