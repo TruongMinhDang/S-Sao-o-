@@ -9,12 +9,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // SỬA: Đổi logic để kiểm tra claim 'role' dạng string
     function hasRole(r) {
       return isAuth() && request.auth.token.role != null && request.auth.token.role == r;
     }
 
-    // SỬA: Điều chỉnh tên role cho khớp với giá trị trong code của bạn
     function isAdmin() { return hasRole('admin'); }
     function isProctor() { return hasRole('giam_thi'); }
     function isHomeroom() { return hasRole('homeroom_teacher'); }
@@ -22,7 +20,6 @@ service cloud.firestore {
       return hasRole('hieu_truong') || hasRole('pho_hieu_truong') || hasRole('nhan_vien_cntt');
     }
 
-    // Lưu ý: Hàm này yêu cầu phải set thêm các claim 'homeroomClassId' và 'homeroomGradeId' cho GVCN
     function homeroomCanView(resourceData) {
       return isHomeroom()
         && (
@@ -43,7 +40,7 @@ service cloud.firestore {
     }
 
     /* =========
-       OVERRIDE (Giữ nguyên, rất tốt!)
+       OVERRIDE
        ========= */
     match /{document=**} {
       allow read, write: if isAdmin();
@@ -53,10 +50,7 @@ service cloud.firestore {
        USERS
        ======== */
     match /users/{uid} {
-      // THÊM: Quy tắc tối quan trọng để trang Quản lý người dùng hoạt động
       allow list: if isAdmin();
-
-      // Giữ nguyên các quy tắc an toàn của bạn
       allow get: if isAuth() && request.auth.uid == uid;
       allow create: if isAuth() && request.auth.uid == uid;
       allow update: if isAuth()
@@ -86,7 +80,8 @@ service cloud.firestore {
        RECORDS
        ========= */
     match /records/{recordId} {
-      allow read: if isAuth() && canRead(resource.data);
+      // UPDATED: Allow all authenticated teachers/staff to read for leaderboard purposes
+      allow read: if isAuth() && (isReadOnlyBoss() || isProctor() || isHomeroom());
       allow create: if isAuth()
                     && isProctor()
                     && request.resource.data.classId is string
@@ -98,7 +93,8 @@ service cloud.firestore {
        WEEKLY SCORES
        =============== */
     match /weeklyScores/{scoreId} {
-      allow read: if isAuth() && canRead(resource.data);
+      // UPDATED: Allow all authenticated teachers/staff to read for leaderboard purposes
+      allow read: if isAuth() && (isReadOnlyBoss() || isProctor() || isHomeroom());
       allow write: if false;
     }
 
