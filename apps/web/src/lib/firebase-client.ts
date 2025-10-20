@@ -1,4 +1,3 @@
-
 "use client";
 
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -8,26 +7,30 @@ import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
-// Gộp config trực tiếp vào đây để đảm bảo không có lỗi import
+// Đọc cấu hình từ biến môi trường của Next.js
 const firebaseConfig = {
-  apiKey: "AIzaSyAqGxdFqDGXOiiKP5cKFvPkNkmTdY4aByw",
-  authDomain: "app-quan-ly-hs.firebaseapp.com",
-  projectId: "app-quan-ly-hs",
-  storageBucket: "app-quan-ly-hs.appspot.com",
-  messagingSenderId: "771200825229",
-  appId: "1:771200825229:web:cbc5498073eff6be21afc4",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
-
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize App Check - PHẢI được khởi tạo trước các dịch vụ khác
-if (typeof window !== 'undefined') {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider('6Lf-0_gpAAAAAB6_ZgV7e_FvX8xw_9x3X_yYjW4C'),
-    isTokenAutoRefreshEnabled: true
-  });
+// Đảm bảo bạn đã thêm NEXT_PUBLIC_RECAPTCHA_SITE_KEY vào biến môi trường
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
+  } catch (error) {
+    console.error("Lỗi khi khởi tạo App Check:", error);
+  }
 }
 
 // Khởi tạo các dịch vụ SAU KHI đã có App Check
