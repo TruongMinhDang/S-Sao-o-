@@ -11,7 +11,6 @@ import {
 import {
   Cell,
   type PieProps as RechartsPieProps,
-  type PieSectorDataItem,
 } from "recharts"
 import {
   type ChartConfig,
@@ -405,7 +404,7 @@ PieChartTooltip.displayName = "PieChartTooltip"
  * -------------------------------------------------------------------------- */
 
 type PieActiveShape = (
-  props: PieSectorDataItem
+  props: any
 ) => React.ReactElement<SVGPathElement>
 
 const PieChartActiveShape: PieActiveShape = (props) => {
@@ -436,7 +435,7 @@ const PieChartSector = React.forwardRef<
       activeShape={
         props.activeShape
           ? props.activeShape
-          : (props: PieSectorDataItem) => <Sector {...props} />
+          : (props: any) => <Sector {...props} />
       }
     >
       {data.map((item, index) => (
