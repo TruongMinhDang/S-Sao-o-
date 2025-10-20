@@ -13,6 +13,10 @@
   },
   "hosting": {
     "source": "apps/web",
+    "predeploy": [
+      "npm --prefix \"$RESOURCE_DIR\" install",
+      "npm --prefix \"$RESOURCE_DIR\" run build"
+    ],
     "ignore": [
       "firebase.json",
       "**/.*",
