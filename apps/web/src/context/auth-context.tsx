@@ -11,6 +11,7 @@ interface AuthContextType {
    */
   userProfile: UserProfile | null;
   isAdmin: boolean;
+  isTeacher: boolean;
   loading: boolean;
 }
 
@@ -58,9 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Admin có thể là vai trò "admin", "hieu_truong", hoặc "pho_hieu_truong"
   const isAdmin = ['admin', 'hieu_truong', 'pho_hieu_truong'].includes(userProfile?.role || '');
+  const isTeacher = ['giao_vien_chu_nhiem', 'homeroom_teacher'].includes(userProfile?.role || '');
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, isAdmin, loading }}>
+    <AuthContext.Provider value={{ user, userProfile, isAdmin, isTeacher, loading }}>
       {children}
     </AuthContext.Provider>
   );
