@@ -27,12 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 
 // ================== HELPERS =====================
 const TERM_START = new Date(2025, 8, 8);
@@ -215,22 +210,18 @@ export default function MyClassPage() {
     return { filteredViolations: sortedViolations, weeklyStats };
   }, [selectedClass, selectedWeek, allViolations, rules]);
 
-  // ================== CHART (ĐÃ VÁ) =====================
   // Prepare chart data (independent of selectedWeek)
   const chartData = useMemo(() => {
     const targetClass = selectedClass;
     if (targetClass === 'all') return [];
 
-    // Gom điểm theo tuần bằng Map cho an toàn kiểu
     const scoresByWeek = new Map<number, number>();
 
-    // 1) Điểm nền từ weeklyScores (chấp nhận cả classId lẫn classRef để chống lệch khóa)
     allWeeklyScores
       .filter(s => s.classId === targetClass || s.classRef === targetClass)
       .forEach(s => {
         if (s.week == null) return;
         const week = Number(s.week);
-        // Mặc định mỗi mảng 330 cho Khối 9, 340 cho khối khác (đúng quy chế hiện dùng)
         const isG9 = s.gradeName === 'Khối 9' || getGradeFromClass(targetClass) === '9';
         const defaultUnit = isG9 ? 330 : 340;
         const ht = s.scores?.hoc_tap;
@@ -243,7 +234,6 @@ export default function MyClassPage() {
         scoresByWeek.set(week, safeNumber(scoresByWeek.get(week)) + base);
       });
 
-    // 2) Cộng/trừ từ bảng records
     allViolations
       .filter(v => v.classRef === targetClass)
       .forEach(v => {
@@ -251,7 +241,6 @@ export default function MyClassPage() {
         scoresByWeek.set(week, safeNumber(scoresByWeek.get(week)) + safeNumber(v.pointsApplied));
       });
 
-    // 3) Trải tuyến: tuần rỗng sẽ “carry forward” từ tuần trước hoặc từ initialScore
     const initialScore = getGradeFromClass(targetClass) === '9' ? 990 : 1020;
     let lastKnown: number | undefined = undefined;
     const data = Array.from({ length: TOTAL_WEEKS }, (_, i) => {
@@ -262,12 +251,10 @@ export default function MyClassPage() {
       return { week, points };
     });
 
-    // Phòng hờ: nếu mọi điểm đều NaN/không hợp lệ, trả ít nhất 1 điểm để biểu đồ hiện
     const anyFinite = data.some(d => Number.isFinite(d.points));
     return anyFinite ? data : [{ week: 1, points: initialScore }];
   }, [selectedClass, allViolations, allWeeklyScores]);
 
-  // Miền Y tự thích ứng, có đệm
   const yDomain = useMemo(() => {
     if (!chartData.length) return { min: 0, max: 1000 };
     const vals = chartData.map(d => Number(d.points)).filter(Number.isFinite);
@@ -278,7 +265,6 @@ export default function MyClassPage() {
     return { min: min - pad, max: max + pad };
   }, [chartData]);
 
-  // Admin filters
   const availableGrades = useMemo(() =>
     Array.from(new Set(allClasses.map(getGradeFromClass).filter(Boolean))).sort((a,b) => parseInt(a) - parseInt(b)),
     [allClasses]
@@ -357,25 +343,20 @@ export default function MyClassPage() {
                 <CardContent><div className="text-md font-bold truncate" title={weeklyStats.commonError}>{weeklyStats.commonError}</div></CardContent>
               </Card>
             </div>
-            <div>
+            <div className="h-[250px] w-full">
               <CardTitle className="mb-4 text-xl">Biểu đồ Lịch sử Điểm</CardTitle>
-              <ChartContainer config={{}} className="h-[250px] w-full">
-                <ResponsiveContainer>
-                  <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="week" tickFormatter={(value) => `T${value}`} />
-                    {/* ĐÃ SỬA: Miền Y tự thích ứng có đệm */}
-                    <YAxis domain={[yDomain.min, yDomain.max]} allowDecimals={false} />
-                    {/* ĐÃ SỬA: Tooltip dùng ChartTooltipContent với valueFormatter rõ ràng */}
-                    <ChartTooltip
-                      formatter={(value: any) => `${value} điểm`}
-                      labelFormatter={(label: any) => `Tuần ${label}`}
-                      content={<ChartTooltipContent />}
-                    />
-                    <Line type="monotone" dataKey="points" stroke="#8884d8" strokeWidth={2} dot={false} name="Tổng điểm" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
+              <ResponsiveContainer>
+                <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="week" tickFormatter={(value) => `T${value}`} />
+                  <YAxis domain={[yDomain.min, yDomain.max]} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [`${value} điểm`, name]}
+                    labelFormatter={(label: any) => `Tuần ${label}`}
+                  />
+                  <Line type="monotone" dataKey="points" stroke="#8884d8" strokeWidth={2} dot={false} name="Tổng điểm" />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         )}
