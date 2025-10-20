@@ -5,6 +5,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 
 // Đọc cấu hình từ biến môi trường của Next.js
 const firebaseConfig = {
@@ -19,9 +20,20 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// QUAN TRỌNG: App Check đã bị xóa.
-// Hãy đảm bảo bạn đã tắt "Enforcement" của App Check trong Firebase Console.
+// Initialize App Check - PHẢI được khởi tạo trước các dịch vụ khác
+// Đảm bảo bạn đã thêm NEXT_PUBLIC_RECAPTCHA_SITE_KEY vào biến môi trường
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
+  } catch (error) {
+    console.error("Lỗi khi khởi tạo App Check:", error);
+  }
+}
 
+// Khởi tạo các dịch vụ SAU KHI đã có App Check
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
