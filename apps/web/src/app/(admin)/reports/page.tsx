@@ -210,12 +210,14 @@ export default function ReportsPage() {
                     </Table>
                 </div>
             </div>
-             <div className="p-4 bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-r-lg">
-                <h4 className="font-bold">Hướng dẫn</h4>
-                <p className="text-sm">
-                    Nhấn nút <strong>"Tổng hợp & Cập nhật Báo cáo"</strong> để tính toán và lưu dữ liệu điểm tổng kết hàng tuần. 
-                    Bảng sẽ tự động cập nhật sau khi quá trình hoàn tất. Bạn nên chạy lại quy trình này khi có sự thay đổi lớn về dữ liệu điểm.
-                </p>
+             <div className="p-px rounded-lg bg-gradient-to-r from-purple-400 via-pink-500 to-blue-500">
+                <div className="bg-white dark:bg-zinc-900 p-4 rounded-[7px]">
+                    <h4 className="font-bold">Hướng dẫn</h4>
+                    <p className="text-sm mt-1">
+                        Nhấn nút <strong>"Tổng hợp & Cập nhật Báo cáo"</strong> để tính toán và lưu dữ liệu điểm tổng kết hàng tuần. 
+                        Bảng sẽ tự động cập nhật sau khi quá trình hoàn tất. Bạn nên chạy lại quy trình này khi có sự thay đổi lớn về dữ liệu điểm.
+                    </p>
+                </div>
             </div>
         </div>
     );
