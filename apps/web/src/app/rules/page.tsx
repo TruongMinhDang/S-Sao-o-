@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import {
   collection,
   onSnapshot,
@@ -240,11 +241,19 @@ export default function RulesPage() {
 
   const title = useMemo(
     () => (
-      <h1 className="text-3xl font-black leading-tight">
-        <span className="bg-gradient-to-r from-[#ff7a18] to-[#af002d] bg-clip-text text-transparent">
-          Quản Lý Quy Định
-        </span>
-      </h1>
+        <div className="flex items-center gap-3">
+            <Image
+                src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon%20rules.png?alt=media&token=ba9ff1f2-bcd2-417b-be65-cd6e67fce6f9"
+                alt="Biểu tượng Quy định"
+                width={40}
+                height={40}
+            />
+            <h1 className="text-3xl font-black leading-tight">
+                <span className="bg-gradient-to-r from-[#ff7a18] to-[#af002d] bg-clip-text text-transparent">
+                Quản Lý Quy Định
+                </span>
+            </h1>
+      </div>
     ),
     []
   );

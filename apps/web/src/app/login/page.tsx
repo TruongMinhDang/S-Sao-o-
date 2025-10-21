@@ -1,52 +1,79 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getAuth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, onAuthStateChanged } from 'firebase/auth';
 import { app } from '@/lib/firebase.client';
-import { Eye, EyeOff } from 'lucide-react'; // Giả định đã cài lucide-react
+import { Eye, EyeOff } from 'lucide-react';
 
 const auth = getAuth(app);
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  // Pre-fill credentials for debugging
+  const [email, setEmail] = useState('truongminhdang1@gmail.com');
+  const [password, setPassword] = useState('Admin@123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  useEffect(() => {
+    setPersistence(auth, browserLocalPersistence).then(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                router.push('/tong-quan');
+            } else {
+                setIsCheckingAuth(false);
+            }
+        });
+        return () => unsubscribe();
+    });
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setIsLoggingIn(true);
 
     try {
-      // Set persistence based on "Remember me" checkbox
-      const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
-      await setPersistence(auth, persistence);
-      
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/tong-quan'); // Chuyển hướng sau khi đăng nhập thành công
-
     } catch (error: any) {
-      console.error("Lỗi đăng nhập:", error.code);
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        setError("Email hoặc mật khẩu không đúng.");
-      } else {
-        setError("Có lỗi xảy ra. Vui lòng thử lại.");
+      console.error("Lỗi đăng nhập:", error.code, error.message);
+      switch (error.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          setError("Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.");
+          break;
+        case 'auth/user-disabled':
+          setError("Tài khoản này đã bị vô hiệu hóa bởi quản trị viên.");
+          break;
+        case 'auth/too-many-requests':
+          setError("Bạn đã thử đăng nhập sai quá nhiều lần. Tài khoản đã bị tạm khóa, vui lòng thử lại sau.");
+          break;
+        case 'auth/network-request-failed':
+          setError("Lỗi kết nối mạng. Vui lòng kiểm tra lại đường truyền internet.");
+          break;
+        default:
+          setError("Có lỗi không xác định xảy ra. Vui lòng thử lại.");
+          break;
       }
     } finally {
-      setLoading(false);
+      setIsLoggingIn(false);
     }
   };
+
+  if (isCheckingAuth) {
+    return <div className="flex items-center justify-center min-h-screen">Đang tải...</div>;
+  }
+
+  const isLoading = isCheckingAuth || isLoggingIn;
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
@@ -68,12 +95,15 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={loading}
+                    disabled={isLoading}
                     />
                 </div>
                 <div className="grid gap-2">
-                    <div className="flex items-center">
-                    <Label htmlFor="password">Mật khẩu</Label>
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="password">Mật khẩu</Label>
+                        <a href="#" className="text-sm text-primary hover:underline">
+                            Quên mật khẩu?
+                        </a>
                     </div>
                     <div className="relative">
                         <Input
@@ -82,27 +112,18 @@ export default function LoginPage() {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            disabled={loading}
+                            disabled={isLoading}
                         />
                         <Button variant="ghost" size="icon" type="button" className="absolute top-0 right-0 h-full px-3" onClick={() => setShowPassword(!showPassword)}>
                             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                     </div>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center space-x-2">
-                        <Checkbox id="remember-me" checked={rememberMe} onCheckedChange={(checked: boolean) => setRememberMe(Boolean(checked))} />
-                        <Label htmlFor="remember-me" className="text-sm font-medium leading-none cursor-pointer">Ghi nhớ tôi</Label>
-                    </div>
-                    <a href="#" className="text-sm text-primary hover:underline">
-                        Quên mật khẩu?
-                    </a>
-                </div>
 
-                {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+                {error && <p className="text-sm text-red-500 mt-4">{error}</p>}
 
-                <Button type="submit" className="w-full mt-4" disabled={loading}>
-                    {loading ? 'Đang xử lý...' : 'Đăng nhập'}
+                <Button type="submit" className="w-full mt-4" disabled={isLoading}>
+                    {isLoggingIn ? 'Đang xử lý...' : 'Đăng nhập'}
                 </Button>
                 </form>
             </CardContent>
