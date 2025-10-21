@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { app } from '@/lib/firebase.client';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
@@ -23,41 +24,55 @@ interface UserProfile {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const publicPaths = ['/login'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+
 
   useEffect(() => {
     const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Lấy custom claims từ ID token.
-        // forceRefresh: true đảm bảo token luôn mới nhất.
         const tokenResult = await currentUser.getIdTokenResult(true);
         const claims = tokenResult.claims;
 
-        // Xây dựng userProfile từ thông tin cơ bản và custom claims
         const profile: UserProfile = {
           displayName: currentUser.displayName ?? undefined,
           email: currentUser.email ?? undefined,
           role: claims.role as UserProfile['role'] | undefined,
-          assignedClasses: (claims.assignedClasses as string[] | undefined) || [], // Lấy danh sách lớp
+          assignedClasses: (claims.assignedClasses as string[] | undefined) || [],
         };
         setUserProfile(profile);
+        
+        // --- LOGIC CHUYỂN HƯỚNG SAU KHI ĐĂNG NHẬP ---
+        // Chỉ chuyển hướng nếu người dùng đang ở trang login hoặc trang chủ.
+        // Tránh chuyển hướng khi họ làm mới (refresh) một trang được bảo vệ.
+        if (publicPaths.includes(pathname) || pathname === '/') {
+            const isAdmin = ['admin', 'hieu_truong', 'pho_hieu_truong'].includes(profile.role || '');
+            const isTeacher = ['giao_vien_chu_nhiem', 'homeroom_teacher'].includes(profile.role || '');
+
+            if (isTeacher && !isAdmin) {
+                router.push('/lop-cua-toi');
+            } else if (isAdmin) {
+                router.push('/tong-quan');
+            }
+        }
+
       } else {
-        // User đã đăng xuất, xóa profile
         setUserProfile(null);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [pathname, router]);
 
-  // Admin có thể là vai trò "admin", "hieu_truong", hoặc "pho_hieu_truong"
   const isAdmin = ['admin', 'hieu_truong', 'pho_hieu_truong'].includes(userProfile?.role || '');
   const isTeacher = ['giao_vien_chu_nhiem', 'homeroom_teacher'].includes(userProfile?.role || '');
 

@@ -227,9 +227,9 @@ export default function MyClassPage() {
     if (selectedClass === 'all' || weeklyReports.length === 0) return [];
 
     const className = formatClassName(selectedClass);
+    const allTermWeeks = Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1);
 
-    const data = allWeeks.map(weekInfo => {
-        const weekNumber = Number(weekInfo.weekNumber);
+    const data = allTermWeeks.map(weekNumber => {
         const reportForWeek = weeklyReports.find(r => r.weekNumber === weekNumber);
         const score = reportForWeek?.scores?.[className];
 
@@ -241,7 +241,7 @@ export default function MyClassPage() {
     });
     
     // Fill in missing data with the last known score to make the line continuous
-    let lastKnownScore = null;
+    let lastKnownScore: number | null = null;
     const continuousData = data.map(d => {
         if (d.points !== null) {
             lastKnownScore = d.points;
@@ -329,7 +329,7 @@ export default function MyClassPage() {
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm trừ</CardTitle></CardHeader>
-                <CardContent><div className="text-2xl font-bold text-red-600">{weeklyStats.totalDemerit}</div></dCardContent>
+                <CardContent><div className="text-2xl font-bold text-red-600">{weeklyStats.totalDemerit}</div></CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Lỗi phổ biến</CardTitle></CardHeader>
