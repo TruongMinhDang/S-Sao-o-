@@ -7,6 +7,8 @@ import {
   Bell,
   Shield,
   UserRound,
+  School,
+  LogIn,
 } from "lucide-react";
 
 export const Icons = {
@@ -18,6 +20,8 @@ export const Icons = {
   bell: Bell,
   admin: Shield,
   profile: UserRound,
+  class: School,
+  login: LogIn,
 } as const;
 
 export type IconKey = keyof typeof Icons;
