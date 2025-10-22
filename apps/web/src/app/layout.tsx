@@ -34,12 +34,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-gray-50/50">
       <MainNav />
-      <div className="flex flex-1 flex-col">
+      {/* SỬA: Tăng padding-bottom cho container chính trên di động */}
+      <div className="flex flex-1 flex-col pb-20 md:pb-0">
         <header className="flex h-14 items-center justify-end gap-4 border-b bg-white px-6">
           <UserNav />
         </header>
-        {/* SỬA: Thêm padding-bottom cho màn hình di động */}
-        <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">{children}</main>
         <footer className="border-t p-3 text-center text-xs text-muted-foreground">
           Sản phẩm chuyển đổi số của Liên Đội Trần Quang Khải — Bản quyền 2025 của Trương Minh Đăng, phát triển trên nền Firebase Studio
         </footer>
