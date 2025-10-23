@@ -42,7 +42,8 @@ service cloud.firestore {
 
     /* STUDENTS */
     match /students/{studentId} {
-        allow read: if canReadEverything();
+        // FIX: Allow proctors to read student list to create records
+        allow read: if canReadEverything() || isProctor();
         allow write: if isAdmin();
     }
 
