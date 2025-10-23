@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image'; // THÊM IMPORT
 import { collection, onSnapshot, query, writeBatch, doc, serverTimestamp, orderBy, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase-client';
 
@@ -181,16 +182,14 @@ export default function GhiNhanHoatDong() {
     ];
   }, [students, grade]);
   
-  // THAY ĐỔI MỚI: Thêm các lựa chọn mặc định
   const studentItems = useMemo(()=> {
     const regularStudents = students
-        .filter(s => !classRef || s.classRef === classRef) // Lọc theo lớp đã chọn
+        .filter(s => !classRef || s.classRef === classRef)
         .map(s=>({ 
             value:s.id, label:s.fullName, sub: `${formatClassName(s.classRef)} - ${s.schoolId}`
         }))
         .sort((a,b) => a.label.localeCompare(b.label, 'vi'));
 
-    // Chỉ thêm lựa chọn đặc biệt khi đã chọn một lớp cụ thể
     if (classRef) {
       const className = formatClassName(classRef);
       const specialOptions = [
@@ -226,7 +225,6 @@ export default function GhiNhanHoatDong() {
     return count + 1;
   }
   
-  // THAY ĐỔI MỚI: Cập nhật hàm onAdd
   function onAdd() {
     if(!studentId || !ruleCode || !recordDate) { alert('Vui lòng nhập đủ Học sinh, Quy định và Ngày ghi nhận.'); return; }
     if(studentId.startsWith(SPECIAL_TARGET_PREFIX) && !classRef) { alert('Vui lòng chọn một lớp cụ thể trong bộ lọc để áp dụng cho tập thể.'); return; }
@@ -252,7 +250,7 @@ export default function GhiNhanHoatDong() {
         else if (studentId === TARGET_TO_TRUC) name = `Tổ trực ${className}`;
         
         studentData = {
-            id: `${studentId}|${classRef}`, // Lưu kèm classRef để định danh duy nhất
+            id: `${studentId}|${classRef}`,
             name: name,
             classRef: classRef,
             className: className
@@ -286,7 +284,6 @@ export default function GhiNhanHoatDong() {
       }, ...prev
     ]);
 
-    // THAY ĐỔI MỚI: Chỉ reset học sinh
     setStudentId('');
   }
 
@@ -359,6 +356,7 @@ export default function GhiNhanHoatDong() {
     return <div className="p-8 text-center text-red-600 bg-red-50 rounded-lg">{error}</div>;
   }
 
+  // === PHẦN VIEW ===
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
         <div className="bg-white p-5 rounded-lg shadow-md">
@@ -395,50 +393,67 @@ export default function GhiNhanHoatDong() {
           </div>
         </div>
 
+      {/* ==== KHUNG GHI NHẬN MỚI ==== */}
       <div className="bg-white rounded-lg shadow-md p-5">
-        <h2 className="font-bold text-xl mb-4">Thêm Ghi Nhận Mới</h2>
-        <div className={`grid grid-cols-1 md:grid-cols-4 items-end gap-4`}>
-          <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Đối tượng</label>
-            <SearchableMenu items={studentItems} placeholder={classRef ? "Chọn đối tượng..." : "Vui lòng chọn lớp trước"} value={studentId} onChange={setStudentId} />
-          </div>
-          <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Quy định</label>
-            <SearchableMenu items={ruleItems} placeholder="Chọn quy định..." value={ruleCode} onChange={setRuleCode} />
-          </div>
-          
-          <div className={`transition-all duration-300 ${isRuleQuantifiable ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng</label>
-              <input
-                className="border rounded px-3 py-2 w-full text-base"
-                type="number"
-                value={quantity}
-                onChange={e => setQuantity(Math.max(1, parseInt(e.target.value, 10)))} 
-                min="1"
-              />
+        <h2 className="font-bold text-xl mb-6">Thêm Ghi Nhận Mới</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          {/* CỘT BÊN TRÁI: HÌNH ẢNH */}
+          <div className="hidden lg:flex items-center justify-center">
+             <Image 
+                src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon%20ghi%20nh%C3%A2%CC%A3n.png?alt=media&token=0c1288c9-3f40-41b0-a6b3-beee737aa9dc"
+                alt="Ghi nhận thi đua"
+                width={250}
+                height={250}
+                className="object-contain"
+                priority
+             />
           </div>
 
-          <div className="flex items-end gap-4">
-             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ngày ghi nhận</label>
-                <input
-                  className="border rounded px-3 py-2 bg-white text-base"
-                  type="date"
-                  value={ymd(recordDate)}
-                  onChange={e=>setRecordDate(new Date(e.target.value))}
-                />
-              </div>
-              <button
-                  className="px-5 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 font-semibold text-base"
-                  onClick={onAdd}
-                  disabled={!studentId || !ruleCode}
+          {/* CỘT BÊN PHẢI: FORM NHẬP LIỆU */}
+          <div className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Đối tượng</label>
+                <SearchableMenu items={studentItems} placeholder={classRef ? "Chọn đối tượng..." : "Vui lòng chọn lớp trước"} value={studentId} onChange={setStudentId} />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quy định</label>
+                <SearchableMenu items={ruleItems} placeholder="Chọn quy định..." value={ruleCode} onChange={setRuleCode} />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 items-end">
+                <div className={`transition-opacity duration-300 ${isRuleQuantifiable ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng</label>
+                    <input
+                        className="border rounded px-3 py-2 w-full text-base"
+                        type="number"
+                        value={quantity}
+                        onChange={e => setQuantity(Math.max(1, parseInt(e.target.value, 10)))} 
+                        min="1"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ngày ghi nhận</label>
+                    <input
+                        className="border rounded px-3 py-2 bg-white text-base w-full"
+                        type="date"
+                        value={ymd(recordDate)}
+                        onChange={e=>setRecordDate(new Date(e.target.value))}
+                    />
+                </div>
+            </div>
+
+            <button
+                className="w-full px-5 py-3 rounded-md bg-blue-600 text-white hover:bg-blue-700 font-semibold text-base disabled:bg-gray-400 disabled:cursor-not-allowed"
+                onClick={onAdd}
+                disabled={!studentId || !ruleCode}
                 >
-                  Thêm
-              </button>
+                Thêm vào danh sách chờ
+            </button>
           </div>
         </div>
       </div>
       
+      {/* ==== DANH SÁCH GHI NHẬN ==== */}
       <div className="bg-white rounded-lg shadow-md">
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="font-bold text-xl">Danh sách Ghi nhận</h2>

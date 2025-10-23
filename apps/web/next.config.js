@@ -2,7 +2,14 @@
 const nextConfig = {
   output: 'standalone',
   images: {
-    unoptimized: true,
+    // Bỏ unoptimized để Next.js có thể xử lý ảnh từ xa
+    // unoptimized: true, 
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+    ],
   },
   devIndicators: {
     allowedDevOrigins: [
