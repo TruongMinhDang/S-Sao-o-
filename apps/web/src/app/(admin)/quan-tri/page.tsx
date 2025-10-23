@@ -1,11 +1,14 @@
+
+// apps/web/src/app/(admin)/quan-tri/page.tsx
+'use client';
+
+import { ComingSoon } from '@/components/coming-soon';
+
 export default function AdminPage() {
   return (
-    <section className="space-y-2">
-      <h1 className="text-xl font-semibold gradient-text">Trang quản trị</h1>
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Chỉ Quản trị viên mới nhìn thấy trang này.
-      </p>
-      {/* TODO: Bảng quản lý người dùng / lớp / cấu hình… */}
-    </section>
+    <ComingSoon 
+      title="Chức năng Quản trị sắp ra mắt"
+      description="Trang quản lý tài khoản, lớp học, và các cài đặt hệ thống khác đang được xây dựng."
+    />
   );
 }
