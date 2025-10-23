@@ -54,14 +54,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "recordDate", "order": "DESCENDING" },
-        { "fieldPath": "classRef", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionId": "records",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "recordDate", "order": "DESCENDING" },
         { "fieldPath": "week", "order": "ASCENDING" }
       ]
     }
