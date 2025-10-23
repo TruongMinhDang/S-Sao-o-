@@ -16,13 +16,12 @@ service cloud.firestore {
 
     function isAdmin() { return hasRole('admin'); }
     function isProctor() { return hasRole('giam_thi'); }
-    // FIX: Include both potential role names for homeroom teacher
     function isHomeroom() { return hasRole('homeroom_teacher') || hasRole('giao_vien_chu_nhiem'); }
     function isReadOnlyBoss() {
       return hasRole('hieu_truong') || hasRole('pho_hieu_truong') || hasRole('nhan_vien_cntt');
     }
 
-    // NEW: Centralized function to grant Admin-like READ access
+    // Centralized function to grant Admin-like READ access
     function canReadEverything() {
         return isAdmin() || isHomeroom() || isReadOnlyBoss();
     }
@@ -33,47 +32,39 @@ service cloud.firestore {
 
     /* USERS */
     match /users/{uid} {
-      // CHANGED: Allow privileged users to read all user data.
-      // Also allow any authenticated user to read their own data.
       allow get, list: if canReadEverything() || (isAuth() && request.auth.uid == uid);
-
-      // Allow user to create their own doc. Admin can write.
       allow create: if isAuth() && request.auth.uid == uid;
-
-      // Allow user to update their own doc, but not change their role. Admin can.
       allow update: if (isAuth() && request.auth.uid == uid
                       && !('roles' in request.resource.data.diff(resource.data).changedKeys())
                       && !('claims' in request.resource.data.diff(resource.data).changedKeys()));
-
-      // Only Admin can perform other writes (like changing roles)
       allow write: if isAdmin();
     }
 
     /* STUDENTS */
     match /students/{studentId} {
-        // CHANGED: Grant global read access to GVCN
         allow read: if canReadEverything();
         allow write: if isAdmin();
     }
 
     /* RECORDS */
     match /records/{recordId} {
-        // CHANGED: Grant global read access to GVCN. Also keep access for Proctors.
         allow read: if canReadEverything() || isProctor();
-
-        // Keep original write rules for Proctors and Admins
         allow create: if isProctor() && request.resource.data.classId is string && request.resource.data.gradeId is string;
         allow update, delete: if isProctor();
         allow write: if isAdmin();
     }
 
-    /* WEEKLY REPORTS - Handle both names just in case */
+    /* WEEKLY REPORTS & SCORES - Explicit rules for known collections */
     match /weekly_reports/{reportId} {
-        allow read: if canReadEverything() || isProctor();
+        allow read: if canReadEverything();
         allow write: if isAdmin();
     }
-     match /weeklyScores/{scoreId} {
-        allow read: if canReadEverything() || isProctor();
+    match /weeklyScores/{scoreId} { 
+        allow read: if canReadEverything();
+        allow write: if isAdmin();
+    }
+    match /weekly_scores/{scoreId} { 
+        allow read: if canReadEverything();
         allow write: if isAdmin();
     }
 
@@ -87,9 +78,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // Fallback for any other collection
+    // CORRECTED FALLBACK: Grant broad read access, restrict write access.
     match /{document=**} {
-        allow read: if isAdmin();
+        allow read: if canReadEverything();
         allow write: if isAdmin();
     }
   }
