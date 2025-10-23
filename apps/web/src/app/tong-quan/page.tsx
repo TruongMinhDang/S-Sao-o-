@@ -56,7 +56,7 @@ const features = [
   {
     title: 'Hồ Sơ Cá Nhân',
     description: 'Chỉnh sửa thông tin cá nhân, xem lại các hoạt động của bạn.',
-    href: '/ho-so-cua-toi',
+    href: '/ho-so',
     icon: <User className="h-8 w-8 text-slate-600" />,
     access: 'any',
     color: 'text-slate-600',
