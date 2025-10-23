@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link'; // THÊM IMPORT LINK
 import { db } from '@/lib/firebase-client';
 import { collection, getDocs, query, where, onSnapshot, doc } from 'firebase/firestore';
 import {
@@ -84,6 +85,7 @@ const getUserName = (supervisorRef: string | undefined, users: any[]) => {
 // ================== TYPES =====================
 interface Violation {
   id: string;
+  studentId?: string; // SỬA: Thêm studentId
   studentName: string;
   ruleRef?: string;
   pointsApplied?: number;
@@ -396,8 +398,15 @@ export default function MyClassPage() {
                             {(v.pointsApplied || 0) > 0 ? '+' : ''}{v.pointsApplied || 0}
                           </span>
                         </TableCell>
+                        {/* SỬA: Bọc nút chi tiết trong Link */}
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm">Chi tiết</Button>
+                           {v.studentId ? (
+                            <Link href={`/hoc-sinh/${v.studentId}`} passHref>
+                              <Button variant="outline" size="sm">Chi tiết</Button>
+                            </Link>
+                          ) : (
+                            <Button variant="outline" size="sm" disabled>Chi tiết</Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

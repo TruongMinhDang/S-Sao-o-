@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
@@ -15,95 +16,81 @@ service cloud.firestore {
 
     function isAdmin() { return hasRole('admin'); }
     function isProctor() { return hasRole('giam_thi'); }
-    function isHomeroom() { return hasRole('homeroom_teacher'); }
+    // FIX: Include both potential role names for homeroom teacher
+    function isHomeroom() { return hasRole('homeroom_teacher') || hasRole('giao_vien_chu_nhiem'); }
     function isReadOnlyBoss() {
       return hasRole('hieu_truong') || hasRole('pho_hieu_truong') || hasRole('nhan_vien_cntt');
     }
 
-    function homeroomCanView(resourceData) {
-      return isHomeroom()
-        && (
-            (resourceData.classId != null
-              && request.auth.token.homeroomClassId != null
-              && resourceData.classId == request.auth.token.homeroomClassId)
-          || (resourceData.gradeId != null
-              && request.auth.token.homeroomGradeId != null
-              && resourceData.gradeId == request.auth.token.homeroomGradeId)
-        );
+    // NEW: Centralized function to grant Admin-like READ access
+    function canReadEverything() {
+        return isAdmin() || isHomeroom() || isReadOnlyBoss();
     }
 
-    function canRead(resourceData) {
-      return isAdmin()
-          || isReadOnlyBoss()
-          || isProctor()
-          || homeroomCanView(resourceData);
-    }
+    /* =========================
+       Rules per Collection
+       ========================= */
 
-    /* =========
-       OVERRIDE
-       ========= */
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-
-    /* ========
-       USERS
-       ======== */
+    /* USERS */
     match /users/{uid} {
-      allow list: if isAdmin();
-      allow get: if isAuth() && request.auth.uid == uid;
+      // CHANGED: Allow privileged users to read all user data.
+      // Also allow any authenticated user to read their own data.
+      allow get, list: if canReadEverything() || (isAuth() && request.auth.uid == uid);
+
+      // Allow user to create their own doc. Admin can write.
       allow create: if isAuth() && request.auth.uid == uid;
-      allow update: if isAuth()
-                    && request.auth.uid == uid
-                    && !('roles' in request.resource.data.diff(resource.data).changedKeys())
-                    && !('claims' in request.resource.data.diff(resource.data).changedKeys());
-      allow delete: if false;
+
+      // Allow user to update their own doc, but not change their role. Admin can.
+      allow update: if (isAuth() && request.auth.uid == uid
+                      && !('roles' in request.resource.data.diff(resource.data).changedKeys())
+                      && !('claims' in request.resource.data.diff(resource.data).changedKeys()));
+
+      // Only Admin can perform other writes (like changing roles)
+      allow write: if isAdmin();
     }
 
-    /* ==========
-       CLASSES
-       ========== */
+    /* STUDENTS */
+    match /students/{studentId} {
+        // CHANGED: Grant global read access to GVCN
+        allow read: if canReadEverything();
+        allow write: if isAdmin();
+    }
+
+    /* RECORDS */
+    match /records/{recordId} {
+        // CHANGED: Grant global read access to GVCN. Also keep access for Proctors.
+        allow read: if canReadEverything() || isProctor();
+
+        // Keep original write rules for Proctors and Admins
+        allow create: if isProctor() && request.resource.data.classId is string && request.resource.data.gradeId is string;
+        allow update, delete: if isProctor();
+        allow write: if isAdmin();
+    }
+
+    /* WEEKLY REPORTS - Handle both names just in case */
+    match /weekly_reports/{reportId} {
+        allow read: if canReadEverything() || isProctor();
+        allow write: if isAdmin();
+    }
+     match /weeklyScores/{scoreId} {
+        allow read: if canReadEverything() || isProctor();
+        allow write: if isAdmin();
+    }
+
+    /* CLASSES & RULES (Publicly readable by any authenticated user) */
     match /classes/{classId} {
       allow read: if isAuth();
-      allow write: if false;
+      allow write: if isAdmin();
     }
-
-    /* ==========
-       STUDENTS
-       ========== */
-    match /students/{studentId} {
-      allow read: if isAuth() && canRead(resource.data);
-      allow write: if false;
-    }
-
-    /* =========
-       RECORDS
-       ========= */
-    match /records/{recordId} {
-      // UPDATED: Allow all authenticated teachers/staff to read for leaderboard purposes
-      allow read: if isAuth() && (isReadOnlyBoss() || isProctor() || isHomeroom());
-      allow create: if isAuth()
-                    && isProctor()
-                    && request.resource.data.classId is string
-                    && request.resource.data.gradeId is string;
-      allow update, delete: if isAuth() && isProctor();
-    }
-
-    /* ===============
-       WEEKLY SCORES
-       =============== */
-    match /weeklyScores/{scoreId} {
-      // UPDATED: Allow all authenticated teachers/staff to read for leaderboard purposes
-      allow read: if isAuth() && (isReadOnlyBoss() || isProctor() || isHomeroom());
-      allow write: if false;
-    }
-
-    /* ======
-       RULES
-       ====== */
-    match /rules/{id} {
+    match /rules/{ruleId} {
       allow read: if isAuth();
-      allow write: if false;
+      allow write: if isAdmin();
+    }
+    
+    // Fallback for any other collection
+    match /{document=**} {
+        allow read: if isAdmin();
+        allow write: if isAdmin();
     }
   }
 }

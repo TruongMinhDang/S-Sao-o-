@@ -7,9 +7,6 @@ import { useRouter, usePathname } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
-  /**
-   * Thông tin user mở rộng, chứa vai trò và các lớp được phân công từ Custom Claims.
-   */
   userProfile: UserProfile | null;
   isAdmin: boolean;
   isTeacher: boolean;
@@ -20,7 +17,7 @@ interface UserProfile {
   displayName?: string;
   email?: string;
   role?: 'admin' | 'giao_vien_chu_nhiem' | 'homeroom_teacher' | 'hieu_truong' | 'pho_hieu_truong' | 'giam_thi';
-  assignedClasses?: string[]; // Thêm trường này
+  assignedClasses?: string[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,7 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-
   useEffect(() => {
     const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -42,28 +38,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const tokenResult = await currentUser.getIdTokenResult(true);
         const claims = tokenResult.claims;
 
+        // === ROBUST FIX FOR assignedClasses ===
+        const rawClasses = claims.assignedClasses;
+        let finalClasses: string[] = [];
+
+        if (Array.isArray(rawClasses)) {
+          // Case 1: The claim is already a proper array
+          finalClasses = rawClasses;
+        } else if (typeof rawClasses === 'string' && rawClasses.length > 0) {
+          // Case 2: The claim is a string, e.g., "class_A,class_B" or just "class_A"
+          finalClasses = rawClasses.split(',').map(c => c.trim());
+        }
+
         const profile: UserProfile = {
           displayName: currentUser.displayName ?? undefined,
           email: currentUser.email ?? undefined,
           role: claims.role as UserProfile['role'] | undefined,
-          assignedClasses: (claims.assignedClasses as string[] | undefined) || [],
+          assignedClasses: finalClasses, // Use the sanitized array
         };
         setUserProfile(profile);
-        
-        // --- LOGIC CHUYỂN HƯỚNG SAU KHI ĐĂNG NHẬP ---
-        // Chỉ chuyển hướng nếu người dùng đang ở trang login hoặc trang chủ.
-        // Tránh chuyển hướng khi họ làm mới (refresh) một trang được bảo vệ.
+
         if (publicPaths.includes(pathname) || pathname === '/') {
             const isAdmin = ['admin', 'hieu_truong', 'pho_hieu_truong'].includes(profile.role || '');
             const isTeacher = ['giao_vien_chu_nhiem', 'homeroom_teacher'].includes(profile.role || '');
-
             if (isTeacher && !isAdmin) {
                 router.push('/lop-cua-toi');
             } else if (isAdmin) {
                 router.push('/tong-quan');
             }
         }
-
       } else {
         setUserProfile(null);
       }

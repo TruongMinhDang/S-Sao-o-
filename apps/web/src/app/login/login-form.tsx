@@ -1,11 +1,10 @@
-"use client";
+'use client';
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   signInWithEmailAndPassword,
   setPersistence,
-  browserLocalPersistence,
-  browserSessionPersistence,
+  browserSessionPersistence, // Chỉ sử dụng session persistence
 } from "firebase/auth";
 import { auth } from "@/lib/firebase.client";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ import { Eye, EyeOff } from "lucide-react";
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,13 +34,15 @@ export default function LoginForm() {
     setError(null);
 
     try {
-      // Set persistence based on "Remember me" checkbox
-      await setPersistence(
-        auth,
-        rememberMe ? browserLocalPersistence : browserSessionPersistence
-      );
+      // Luôn sử dụng session persistence, không lưu trữ lâu dài
+      await setPersistence(auth, browserSessionPersistence);
 
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // === FIX ===
+      // Force refresh the token to get the latest custom claims from the server
+      await userCredential.user.getIdToken(true);
+      
       router.push("/tong-quan"); // Redirect to dashboard after successful login
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -85,6 +85,7 @@ export default function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
+              autoComplete="email"
             />
           </div>
           <div className="grid gap-2 relative">
@@ -96,6 +97,7 @@ export default function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
+              autoComplete="current-password"
             />
             <Button
               type="button"
@@ -113,21 +115,6 @@ export default function LoginForm() {
                 {showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               </span>
             </Button>
-          </div>
-          <div className="flex items-center space-x-2">
-             <input
-              type="checkbox"
-              id="remember-me"
-              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-            />
-            <Label
-              htmlFor="remember-me"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Ghi nhớ đăng nhập
-            </Label>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>
