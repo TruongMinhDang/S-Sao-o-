@@ -64,13 +64,6 @@
         { "fieldPath": "recordDate", "order": "DESCENDING" },
         { "fieldPath": "week", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionId": "records",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []
