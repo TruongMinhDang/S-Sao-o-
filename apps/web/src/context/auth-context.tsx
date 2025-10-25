@@ -5,23 +5,38 @@ import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { app } from '@/lib/firebase.client';
 import { useRouter, usePathname } from 'next/navigation';
 
-interface AuthContextType {
-  user: User | null;
-  userProfile: UserProfile | null;
-  isAdmin: boolean;
-  isTeacher: boolean;
-  loading: boolean;
-}
-
 interface UserProfile {
   displayName?: string;
   email?: string;
-  role?: 'admin' | 'giao_vien_chu_nhiem' | 'homeroom_teacher' | 'hieu_truong' | 'pho_hieu_truong' | 'giam_thi';
+  role?: 'admin' | 'giao_vien_chu_nhiem' | 'homeroom_teacher' | 'hieu_truong' | 'pho_hieu_truong' | 'giam_thi' | 'nv_tin_hoc';
   assignedClasses?: string[];
 }
 
+interface AuthContextType {
+  user: User | null;
+  userProfile: UserProfile | null;
+  isSuperAdmin: boolean;
+  isViewerAdmin: boolean;
+  isHomeroomTeacher: boolean;
+  isProctor: boolean;
+  loading: boolean;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const publicPaths = ['/login'];
+
+const publicPaths = ['/login', '/auth/action'];
+
+const authRedirectRoutes: { [key: string]: string } = {
+    admin: '/tong-quan',
+    viewerAdmin: '/tong-quan',
+    teacher: '/lop-cua-toi',
+    default: '/tong-quan'
+};
+
+const isSuperAdminRole = (role?: string) => role === 'admin';
+const isViewerAdminRole = (role?: string) => ['hieu_truong', 'pho_hieu_truong', 'nv_tin_hoc'].includes(role || '');
+const isHomeroomTeacherRole = (role?: string) => ['giao_vien_chu_nhiem', 'homeroom_teacher'].includes(role || '');
+const isProctorRole = (role?: string) => role === 'giam_thi';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -35,37 +50,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const tokenResult = await currentUser.getIdTokenResult(true);
-        const claims = tokenResult.claims;
+        try {
+          const tokenResult = await currentUser.getIdTokenResult(true);
+          const claims = tokenResult.claims;
 
-        // === ROBUST FIX FOR assignedClasses ===
-        const rawClasses = claims.assignedClasses;
-        let finalClasses: string[] = [];
+          const rawClasses = claims.assignedClasses;
+          let finalClasses: string[] = [];
+          if (Array.isArray(rawClasses)) {
+            finalClasses = rawClasses;
+          } else if (typeof rawClasses === 'string' && rawClasses.length > 0) {
+            finalClasses = rawClasses.split(',').map(c => c.trim());
+          }
 
-        if (Array.isArray(rawClasses)) {
-          // Case 1: The claim is already a proper array
-          finalClasses = rawClasses;
-        } else if (typeof rawClasses === 'string' && rawClasses.length > 0) {
-          // Case 2: The claim is a string, e.g., "class_A,class_B" or just "class_A"
-          finalClasses = rawClasses.split(',').map(c => c.trim());
-        }
-
-        const profile: UserProfile = {
-          displayName: currentUser.displayName ?? undefined,
-          email: currentUser.email ?? undefined,
-          role: claims.role as UserProfile['role'] | undefined,
-          assignedClasses: finalClasses, // Use the sanitized array
-        };
-        setUserProfile(profile);
-
-        if (publicPaths.includes(pathname) || pathname === '/') {
-            const isAdmin = ['admin', 'hieu_truong', 'pho_hieu_truong'].includes(profile.role || '');
-            const isTeacher = ['giao_vien_chu_nhiem', 'homeroom_teacher'].includes(profile.role || '');
-            if (isTeacher && !isAdmin) {
-                router.push('/lop-cua-toi');
-            } else if (isAdmin) {
-                router.push('/tong-quan');
-            }
+          const profile: UserProfile = {
+            displayName: currentUser.displayName ?? undefined,
+            email: currentUser.email ?? undefined,
+            role: claims.role as UserProfile['role'] | undefined,
+            assignedClasses: finalClasses,
+          };
+          setUserProfile(profile);
+        } catch (error) {
+          console.error("Error fetching user claims:", error);
+          setUserProfile(null);
         }
       } else {
         setUserProfile(null);
@@ -74,13 +80,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [pathname, router]);
+  }, []);
 
-  const isAdmin = ['admin', 'hieu_truong', 'pho_hieu_truong'].includes(userProfile?.role || '');
-  const isTeacher = ['giao_vien_chu_nhiem', 'homeroom_teacher'].includes(userProfile?.role || '');
+  const userRole = userProfile?.role;
+  const isSuperAdmin = isSuperAdminRole(userRole);
+  const isViewerAdmin = isViewerAdminRole(userRole);
+  const isHomeroomTeacher = isHomeroomTeacherRole(userRole);
+  const isProctor = isProctorRole(userRole);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const isPublicPath = publicPaths.includes(pathname);
+
+    if (user) { // User is logged in
+      if (isPublicPath || pathname === '/') {
+        if (isSuperAdmin) {
+            router.push(authRedirectRoutes.admin);
+        } else if (isViewerAdmin) {
+            router.push(authRedirectRoutes.viewerAdmin);
+        } else if (isHomeroomTeacher) {
+            router.push(authRedirectRoutes.teacher);
+        } else {
+            router.push(authRedirectRoutes.default);
+        }
+      }
+    } else { // User is not logged in
+      if (!isPublicPath) {
+        router.push('/login');
+      }
+    }
+  }, [user, userProfile, loading, pathname, router, isSuperAdmin, isViewerAdmin, isHomeroomTeacher]);
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, isAdmin, isTeacher, loading }}>
+    <AuthContext.Provider value={{ user, userProfile, isSuperAdmin, isViewerAdmin, isHomeroomTeacher, isProctor, loading }}>
       {children}
     </AuthContext.Provider>
   );

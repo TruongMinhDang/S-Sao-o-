@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { doc, onSnapshot, DocumentSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase-client'
 import {
@@ -23,7 +23,13 @@ import { ArrowLeft } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
+import { useAuth } from '@/context/auth-context';
 
+const getGradeFromClass = (className: string): string => {
+  if (!className) return ''
+  const match = className.match(/_(\d+)/)
+  return match ? match[1] : ''
+}
 
 // Định dạng tên lớp để hiển thị (ví dụ: "class_6_1" → "6/1")
 const formatClassName = (className: string): string => {
@@ -63,6 +69,7 @@ const comments = [
 ];
 
 export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) {
+  const { isSuperAdmin, isViewerAdmin, isHomeroomTeacher, userProfile } = useAuth();
   const [student, setStudent] = useState<Student | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -103,9 +110,43 @@ export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) 
     return () => unsubscribe()
   }, [studentId])
 
+  const hasAccess = useMemo(() => {
+    if (!student || !userProfile) return false;
+    if (isSuperAdmin || isViewerAdmin) return true;
+    if (isHomeroomTeacher) {
+        const studentGrade = getGradeFromClass(student.class);
+        const teacherGrades = userProfile.assignedClasses?.map(getGradeFromClass) || [];
+        return teacherGrades.includes(studentGrade);
+    }
+    return false;
+  }, [student, userProfile, isSuperAdmin, isViewerAdmin, isHomeroomTeacher]);
+
   const pointsData = student ? [
     { name: 'Điểm', 'Điểm cộng': student.totalPlusPoints, 'Điểm trừ': student.totalMinusPoints },
   ] : [];
+
+  if (loading) {
+      return <div className="h-24 text-center flex items-center justify-center">Đang tải dữ liệu...</div>
+  }
+
+  if (error) {
+      return <div className="h-24 text-center flex items-center justify-center text-red-500">{error}</div>
+  }
+
+  if (!hasAccess) {
+      return (
+          <div className="text-center p-8">
+              <h1 className="text-2xl font-bold">Truy cập bị từ chối</h1>
+              <p>Bạn không có quyền xem thông tin của học sinh này.</p>
+               <Button asChild variant="outline" className="mt-4">
+                    <Link href="/hoc-sinh">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Quay lại danh sách
+                    </Link>
+                </Button>
+          </div>
+      );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -125,11 +166,7 @@ export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) 
         </div>
       </div>
 
-      {loading ? (
-        <div className="h-24 text-center flex items-center justify-center">Đang tải dữ liệu...</div>
-      ) : error ? (
-        <div className="h-24 text-center flex items-center justify-center text-red-500">{error}</div>
-      ) : student ? (
+      {student ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-1 flex flex-col gap-4">
             <Card>
@@ -164,6 +201,12 @@ export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) 
                     </TableRow>
                   </TableBody>
                 </Table>
+                 {isSuperAdmin && (
+                    <div className="flex gap-2 mt-4">
+                        <Button className="w-full" variant="outline">Chỉnh sửa</Button>
+                        <Button className="w-full" variant="destructive">Xóa</Button>
+                    </div>
+                 )}
               </CardContent>
             </Card>
              <Card>
@@ -179,8 +222,12 @@ export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) 
                             </div>
                         ))}
                     </div>
-                    <Textarea placeholder="Thêm nhận xét mới..." />
-                    <Button className="w-full">Gửi nhận xét</Button>
+                    {isSuperAdmin && (
+                        <>
+                            <Textarea placeholder="Thêm nhận xét mới..." />
+                            <Button className="w-full">Gửi nhận xét</Button>
+                        </>
+                    )}
                 </CardContent>
             </Card>
           </div>

@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/table'
 import { AddStudentDialog } from './add-student-dialog'
 import Link from 'next/link'
+import { useAuth } from '@/context/auth-context'
 
 interface Student {
   id: string
@@ -54,6 +55,7 @@ const formatClassName = (className: string): string => {
 }
 
 export default function HocSinhPage() {
+  const { isSuperAdmin, isViewerAdmin, isHomeroomTeacher, userProfile } = useAuth();
   const [allStudents, setAllStudents] = useState<Student[]>([])
   const [khoiFilter, setKhoiFilter] = useState('all')
   const [lopFilter, setLopFilter] = useState('all')
@@ -95,10 +97,16 @@ export default function HocSinhPage() {
     []
   )
 
+  const teacherGrade = useMemo(() => {
+    if (!isHomeroomTeacher || !userProfile?.assignedClasses?.length) return ''
+    return getGradeFromClass(userProfile.assignedClasses[0]);
+  }, [isHomeroomTeacher, userProfile]);
+
   const availableGrades = useMemo(() => {
+    if (isHomeroomTeacher) return [teacherGrade].filter(Boolean);
     const grades = new Set(allStudents.map((s) => getGradeFromClass(s.class)).filter(Boolean))
     return ['all', ...Array.from(grades).sort((a, b) => parseInt(a) - parseInt(b))]
-  }, [allStudents])
+  }, [allStudents, isHomeroomTeacher, teacherGrade])
 
   const availableClasses = useMemo(() => {
     let filtered = allStudents
@@ -110,10 +118,14 @@ export default function HocSinhPage() {
   }, [allStudents, khoiFilter, collator])
 
   const filteredStudents = useMemo(() => {
-    let temp = allStudents
-    if (khoiFilter !== 'all') {
+    let temp = allStudents;
+
+    if (isHomeroomTeacher && teacherGrade) {
+        temp = temp.filter(s => getGradeFromClass(s.class) === teacherGrade);
+    } else if (khoiFilter !== 'all') {
       temp = temp.filter((s) => getGradeFromClass(s.class) === khoiFilter)
     }
+
     if (lopFilter !== 'all') {
       temp = temp.filter((s) => s.class === lopFilter)
     }
@@ -124,9 +136,18 @@ export default function HocSinhPage() {
       )
     }
     return temp
-  }, [allStudents, khoiFilter, lopFilter, searchTerm])
+  }, [allStudents, khoiFilter, lopFilter, searchTerm, isHomeroomTeacher, teacherGrade])
 
-  useEffect(() => setLopFilter('all'), [khoiFilter])
+  useEffect(() => {
+      if (isHomeroomTeacher && teacherGrade) {
+          setKhoiFilter(teacherGrade);
+      } else {
+          setLopFilter('all')
+      }
+  }, [khoiFilter, isHomeroomTeacher, teacherGrade])
+
+  if (loading) return <div>Đang tải dữ liệu...</div>
+  if (error) return <div className="text-red-500">{error}</div>
 
   return (
     <div className="flex flex-col gap-4">
@@ -137,7 +158,7 @@ export default function HocSinhPage() {
             Thêm, sửa và quản lý tất cả học sinh trong hệ thống.
           </p>
         </div>
-        <AddStudentDialog />
+        {isSuperAdmin && <AddStudentDialog />}
       </div>
 
       <Card className="bg-card">
@@ -148,55 +169,57 @@ export default function HocSinhPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label htmlFor="khoi-filter" className="text-sm font-medium">
-                Lọc theo Khối
-              </label>
-              <Select value={khoiFilter} onValueChange={setKhoiFilter}>
-                <SelectTrigger id="khoi-filter">
-                  <SelectValue placeholder="Tất cả các khối" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableGrades.map((grade) => (
-                    <SelectItem key={grade} value={grade}>
-                      {grade === 'all' ? 'Tất cả các khối' : `Khối ${grade}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {(isSuperAdmin || isViewerAdmin) && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label htmlFor="khoi-filter" className="text-sm font-medium">
+                  Lọc theo Khối
+                </label>
+                <Select value={khoiFilter} onValueChange={setKhoiFilter} disabled={isHomeroomTeacher}>
+                  <SelectTrigger id="khoi-filter">
+                    <SelectValue placeholder="Tất cả các khối" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableGrades.map((grade) => (
+                      <SelectItem key={grade} value={grade}>
+                        {grade === 'all' ? 'Tất cả các khối' : `Khối ${grade}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <label htmlFor="lop-filter" className="text-sm font-medium">
-                Lọc theo Lớp
-              </label>
-              <Select value={lopFilter} onValueChange={setLopFilter}>
-                <SelectTrigger id="lop-filter">
-                  <SelectValue placeholder="Tất cả các lớp" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableClasses.map((cls) => (
-                    <SelectItem key={cls} value={cls}>
-                      {cls === 'all' ? 'Tất cả các lớp' : formatClassName(cls)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <label htmlFor="lop-filter" className="text-sm font-medium">
+                  Lọc theo Lớp
+                </label>
+                <Select value={lopFilter} onValueChange={setLopFilter}>
+                  <SelectTrigger id="lop-filter">
+                    <SelectValue placeholder="Tất cả các lớp" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableClasses.map((cls) => (
+                      <SelectItem key={cls} value={cls}>
+                        {cls === 'all' ? 'Tất cả các lớp' : formatClassName(cls)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <label htmlFor="search" className="text-sm font-medium">
-                Tìm kiếm
-              </label>
-              <Input
-                id="search"
-                placeholder="Tìm theo tên hoặc mã số..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <div>
+                <label htmlFor="search" className="text-sm font-medium">
+                  Tìm kiếm
+                </label>
+                <Input
+                  id="search"
+                  placeholder="Tìm theo tên hoặc mã số..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="rounded-md border">
             <Table>
