@@ -39,10 +39,10 @@ const GRADIENT_CLASSES = "bg-gradient-to-r from-[#ff7a18] via-[#ff9a44] to-[#ffd
 // ================= COMPONENT =================
 export function MainNav() {
   const pathname = usePathname();
-  const { user, isAdmin } = useAuth();
+  const { user, isSuperAdmin } = useAuth(); // SỬA: Dùng isSuperAdmin thay vì isAdmin
   
   // Lọc các mục cho desktop nav
-  const desktopItems = DESKTOP_NAV_ITEMS.filter(i => !i.requireAdmin || isAdmin);
+  const desktopItems = DESKTOP_NAV_ITEMS.filter(i => !i.requireAdmin || isSuperAdmin);
   
   // Tạo các mục cho mobile nav, với mục cuối cùng là động
   const mobileItems: Item[] = [

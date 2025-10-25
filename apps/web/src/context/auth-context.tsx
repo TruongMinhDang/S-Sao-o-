@@ -15,6 +15,7 @@ interface UserProfile {
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
+  isAdmin: boolean; // THÊM THUỘC TÍNH NÀY
   isSuperAdmin: boolean;
   isViewerAdmin: boolean;
   isHomeroomTeacher: boolean;
@@ -87,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isViewerAdmin = isViewerAdminRole(userRole);
   const isHomeroomTeacher = isHomeroomTeacherRole(userRole);
   const isProctor = isProctorRole(userRole);
+  const isAdmin = isSuperAdmin || isViewerAdmin; // TÍNH TOÁN GIÁ TRỊ isAdmin
 
   useEffect(() => {
     if (loading) return;
@@ -113,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, userProfile, loading, pathname, router, isSuperAdmin, isViewerAdmin, isHomeroomTeacher]);
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, isSuperAdmin, isViewerAdmin, isHomeroomTeacher, isProctor, loading }}>
+    <AuthContext.Provider value={{ user, userProfile, isAdmin, isSuperAdmin, isViewerAdmin, isHomeroomTeacher, isProctor, loading }}>
       {children}
     </AuthContext.Provider>
   );
