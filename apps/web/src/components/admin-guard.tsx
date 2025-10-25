@@ -2,32 +2,30 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context"; // ĐÃ SỬA
+import { useAuth } from "@/context/auth-context";
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isSuperAdmin } = useAuth(); // Sửa thành isSuperAdmin
   const router = useRouter();
 
   useEffect(() => {
-    // Chờ cho đến khi có kết quả xác thực
     if (loading) {
-      return; 
-    }
-
-    // Nếu không có user, đá về trang login
-    if (!user) {
-      router.replace("/login");
       return;
     }
-    
-    // Nếu có user nhưng không phải admin, đá về trang chủ (hoặc trang lỗi 403)
-    if (!isAdmin) {
-      router.replace("/"); 
-    }
-  }, [user, loading, isAdmin, router]);
 
-  // Trong khi đang tải, hiển thị thông báo
-  if (loading) {
+    if (!user) {
+      router.replace("/auth/action"); // Chuyển về trang đăng nhập/hành động
+      return;
+    }
+
+    // Nếu user không phải là Super Admin, chuyển về trang tổng quan
+    if (!isSuperAdmin) {
+      router.replace("/");
+    }
+  }, [user, loading, isSuperAdmin, router]);
+
+  // Trong khi chờ, hiển thị trạng thái loading hoặc nếu không phải admin
+  if (loading || !isSuperAdmin) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p className="text-sm text-muted-foreground">Đang kiểm tra quyền truy cập...</p>
@@ -35,11 +33,11 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
     );
   }
 
-  // Nếu user đã đăng nhập và là admin, hiển thị nội dung được bảo vệ
-  if (user && isAdmin) {
+  // Nếu là Super Admin, hiển thị nội dung
+  if (user && isSuperAdmin) {
     return <>{children}</>;
   }
 
-  // Trong các trường hợp khác (đang chuyển hướng), không hiển thị gì
+  // Fallback, không hiển thị gì trong khi chuyển hướng
   return null;
 }
