@@ -1,6 +1,6 @@
 run:
-  build: npm run build
-  start: npm run start
+  build: npm --prefix apps/web run build
+  start: npm --prefix apps/web run start
 env:
   - variable: APP_SOSAODO_ID
     secret: firebase-project-id
