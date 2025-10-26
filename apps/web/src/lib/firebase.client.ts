@@ -16,16 +16,22 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
+// Chỉ khởi tạo AppCheck phía client và CHỈ MỘT LẦN DUY NHẤT
 if (typeof window !== 'undefined') {
-  if (process.env.NODE_ENV !== 'production') {
-    (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  // Sử dụng một biến global để đảm bảo code này chỉ chạy 1 lần
+  if (!(global as any)._appCheckInitialized) {
+    (global as any)._appCheckInitialized = true;
+
+    if (process.env.NODE_ENV !== 'production') {
+      (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+    
+    // SỬA LỖI: Sử dụng new ReCaptchaEnterpriseProvider thay vì V3
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!),
+      isTokenAutoRefreshEnabled: true
+    });
   }
-  
-  // SỬA LỖI: Sử dụng new ReCaptchaEnterpriseProvider thay vì V3
-  initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!),
-    isTokenAutoRefreshEnabled: true
-  });
 }
 
 const db = getFirestore(app);

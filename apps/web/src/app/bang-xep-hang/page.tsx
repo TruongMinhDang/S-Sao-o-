@@ -164,9 +164,11 @@ export default function BangXepHangPage() {
   const [recordScores, setRecordScores] = useState<RecordScores>({});
   const [isModalOpen, setModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<EditingClass | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Lấy điểm thủ công
   useEffect(() => {
+    setError(null);
     const weekNumber = selectedWeek.match(/\d+/)?.[0];
     if (!weekNumber) return;
 
@@ -183,6 +185,16 @@ export default function BangXepHangPage() {
             }
         });
         setManualScores(newManualScores);
+    }, (err) => {
+        console.error("onSnapshot error (weeklyScores):", err);
+        setManualScores({});
+        if ((err as any)?.code === "failed-precondition") {
+          setError("Thiếu index cho truy vấn. Mở Console → bấm link 'Create index'.");
+        } else if ((err as any)?.code === "permission-denied") {
+          setError("Không đủ quyền đọc dữ liệu. Kiểm tra Firestore Rules.");
+        } else {
+          setError(`Lỗi đọc dữ liệu: ${(err as any)?.message || String(err)}`);
+        }
     });
 
     return () => unsubscribe();
@@ -219,6 +231,16 @@ export default function BangXepHangPage() {
             }
         });
         setRecordScores(newRecordScores);
+    }, (err) => {
+        console.error("onSnapshot error (records):", err);
+        setRecordScores({});
+        if ((err as any)?.code === "failed-precondition") {
+          setError("Thiếu index cho truy vấn. Mở Console → bấm link 'Create index'.");
+        } else if ((err as any)?.code === "permission-denied") {
+          setError("Không đủ quyền đọc dữ liệu. Kiểm tra Firestore Rules.");
+        } else {
+          setError(`Lỗi đọc dữ liệu: ${(err as any)?.message || String(err)}`);
+        }
     });
     
     return () => unsubscribe();
@@ -285,7 +307,6 @@ export default function BangXepHangPage() {
       }
   };
 
-  // SỬA: Bổ sung bộ màu sắc cho từng khối
   const gradeColorSchemes: { [key: string]: { text: string; border: string; bg: string } } = {
     "Khối 6": { text: 'text-red-700', border: 'border-red-300', bg: 'bg-red-50' },
     "Khối 7": { text: 'text-yellow-700', border: 'border-yellow-400', bg: 'bg-yellow-50' },
@@ -293,7 +314,6 @@ export default function BangXepHangPage() {
     "Khối 9": { text: 'text-green-700', border: 'border-green-300', bg: 'bg-green-50' },
   };
 
-// ================== PHẦN GIAO DIỆN MỚI =====================
   return (
     <div className="container mx-auto p-4 md:p-8 bg-gray-50 min-h-screen">
       <EditScoreModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} onSave={handleSaveScore} classData={editingClass} />
@@ -309,79 +329,78 @@ export default function BangXepHangPage() {
         </Select>
       </div>
 
-      <div className="flex flex-col gap-12">
-        {grades.map((grade) => {
-          // SỬA: Lấy màu sắc tương ứng với khối
-          const colors = gradeColorSchemes[grade.name] || gradeColorSchemes["Khối 9"];
-          
-          return (
-            // SỬA: Thêm hiệu ứng hover
-            <div key={grade.name} className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
-              {/* SỬA: Áp dụng màu cho tiêu đề */}
-              <h2 className={`text-xl sm:text-2xl font-bold text-center ${colors.text} mb-6`}>
-                SƠ KẾT HÀNG TUẦN - {grade.name.toUpperCase()}
-              </h2>
-              <div className="overflow-x-auto">
-                {/* SỬA: Áp dụng màu cho viền bảng */}
-                <div className={`grid border-l border-t ${colors.border}`} style={{ gridTemplateColumns: `minmax(120px, 1.5fr) repeat(${grade.classes.length}, minmax(90px, 1fr))` }}>
-                  
-                  {/* SỬA: Áp dụng màu cho header */}
-                  <div className={`font-bold text-gray-700 p-3 border-r border-b ${colors.border} ${colors.bg} flex items-center justify-start`}>NỘI DUNG</div>
-                  {grade.classes.map((className) => (
-                    <div key={className} className={`font-bold text-gray-800 p-3 border-r border-b ${colors.border} ${colors.bg} flex items-center justify-center relative group`}>
-                      {className}
-                      <Button variant="ghost" size="sm" className="ml-1 h-6 w-6 p-0 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleOpenModal(grade.name, className)}>
-                         ✏️
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  {tableDataStructure.map((row) => (
-                    <>
-                      {/* SỬA: Áp dụng màu cho viền cột đầu tiên */}
-                      <div key={row.key} className={`font-semibold p-3 border-r border-b ${colors.border} flex items-center ${row.key === 'hang' ? 'bg-yellow-100 text-yellow-900' : 'bg-white'}`}>
-                        {row.label}
-                      </div>
-                      {grade.classes.map((className) => {
-                        const data = displayData[grade.name]?.[className];
-                        const value = data?.[row.key] ?? (row.key === 'nhan_xet' ? '' : 0);
-                        
-                        let displayValue: any = value;
-                        // SỬA: Áp dụng màu cho viền các ô dữ liệu
-                        let cellClasses = `p-3 text-center border-r border-b ${colors.border} flex items-center justify-center font-medium`;
+      {error && (
+        <div className="text-center py-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
+          {error}
+        </div>
+      )}
 
-                        if (row.key === 'hang') {
-                          cellClasses += ' bg-yellow-200 font-bold text-yellow-900';
-                        }
-                        if (row.key === 'diem_cong' && value > 0) {
-                          displayValue = `+${value}`;
-                          cellClasses += ' text-green-600 font-bold';
-                        }
-                        if (row.key === 'diem_tru' && value > 0) {
-                          displayValue = `-${value}`;
-                          cellClasses += ' text-red-600 font-bold';
-                        }
-                        if(row.key === 'tong_diem'){
-                           cellClasses += ' font-bold text-blue-800';
-                        }
-                        if (row.editable) {
-                           cellClasses += ' cursor-pointer hover:bg-gray-100 transition-colors';
-                        }
-                        
-                        return (
-                          <div key={className} className={cellClasses} onClick={() => row.editable && handleOpenModal(grade.name, className)}>
-                            {displayValue}
-                          </div>
-                        );
-                      })}
-                    </>
-                  ))}
+      {!error && (
+        <div className="flex flex-col gap-12">
+          {grades.map((grade) => {
+            const colors = gradeColorSchemes[grade.name] || gradeColorSchemes["Khối 9"];
+            return (
+              <div key={grade.name} className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
+                <h2 className={`text-xl sm:text-2xl font-bold text-center ${colors.text} mb-6`}>
+                  SƠ KẾT HÀNG TUẦN - {grade.name.toUpperCase()}
+                </h2>
+                <div className="overflow-x-auto">
+                  <div className={`grid border-l border-t ${colors.border}`} style={{ gridTemplateColumns: `minmax(120px, 1.5fr) repeat(${grade.classes.length}, minmax(90px, 1fr))` }}>
+                    <div className={`font-bold text-gray-700 p-3 border-r border-b ${colors.border} ${colors.bg} flex items-center justify-start`}>NỘI DUNG</div>
+                    {grade.classes.map((className) => (
+                      <div key={className} className={`font-bold text-gray-800 p-3 border-r border-b ${colors.border} ${colors.bg} flex items-center justify-center relative group`}>
+                        {className}
+                        <Button variant="ghost" size="sm" className="ml-1 h-6 w-6 p-0 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleOpenModal(grade.name, className)}>
+                           ✏️
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    {tableDataStructure.map((row) => (
+                      <>
+                        <div key={row.key} className={`font-semibold p-3 border-r border-b ${colors.border} flex items-center ${row.key === 'hang' ? 'bg-yellow-100 text-yellow-900' : 'bg-white'}`}>
+                          {row.label}
+                        </div>
+                        {grade.classes.map((className) => {
+                          const data = displayData[grade.name]?.[className];
+                          const value = data?.[row.key] ?? (row.key === 'nhan_xet' ? '' : 0);
+                          
+                          let displayValue: any = value;
+                          let cellClasses = `p-3 text-center border-r border-b ${colors.border} flex items-center justify-center font-medium`;
+
+                          if (row.key === 'hang') {
+                            cellClasses += ' bg-yellow-200 font-bold text-yellow-900';
+                          }
+                          if (row.key === 'diem_cong' && value > 0) {
+                            displayValue = `+${value}`;
+                            cellClasses += ' text-green-600 font-bold';
+                          }
+                          if (row.key === 'diem_tru' && value > 0) {
+                            displayValue = `-${value}`;
+                            cellClasses += ' text-red-600 font-bold';
+                          }
+                          if(row.key === 'tong_diem'){
+                             cellClasses += ' font-bold text-blue-800';
+                          }
+                          if (row.editable) {
+                             cellClasses += ' cursor-pointer hover:bg-gray-100 transition-colors';
+                          }
+                          
+                          return (
+                            <div key={className} className={cellClasses} onClick={() => row.editable && handleOpenModal(grade.name, className)}>
+                              {displayValue}
+                            </div>
+                          );
+                        })}
+                      </>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
