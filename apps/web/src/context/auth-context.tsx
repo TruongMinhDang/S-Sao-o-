@@ -49,10 +49,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
         try {
-          const tokenResult = await currentUser.getIdTokenResult(true);
+          // Làm mới thông tin người dùng để lấy trạng thái emailVerified mới nhất
+          await currentUser.reload();
+
+          // Sau khi reload, đối tượng currentUser đã được cập nhật
+          setUser(currentUser);
+
+          const tokenResult = await currentUser.getIdTokenResult(); // Không cần force-refresh ở đây nữa
           const claims = tokenResult.claims;
 
           const rawClasses = claims.assignedClasses;
@@ -76,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setUserProfile(null);
+        setUser(null);
       }
       setLoading(false);
     });
