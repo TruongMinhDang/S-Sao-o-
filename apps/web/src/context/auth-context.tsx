@@ -54,10 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Làm mới thông tin người dùng để lấy trạng thái emailVerified mới nhất
           await currentUser.reload();
 
-          // Sau khi reload, đối tượng currentUser đã được cập nhật
-          setUser(currentUser);
+          // Sau khi reload, tạo một bản sao của đối tượng user để React nhận diện sự thay đổi
+          setUser({ ...currentUser });
 
-          const tokenResult = await currentUser.getIdTokenResult(); // Không cần force-refresh ở đây nữa
+          const tokenResult = await currentUser.getIdTokenResult();
           const claims = tokenResult.claims;
 
           const rawClasses = claims.assignedClasses;
