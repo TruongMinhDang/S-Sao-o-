@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { db } from '@/lib/firebase.client';
+import { db } from '@/lib/firebase-client';
 import {
   collection,
   onSnapshot,
@@ -9,10 +9,6 @@ import {
   doc,
   setDoc,
   query,
-  where,
-  getDoc,
-  Query,
-  DocumentData,
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,11 +37,10 @@ import {
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Search } from 'lucide-react';
-import { useAuth } from '@/context/auth-context'; // ĐÃ SỬA
+import { useAuth } from '@/context/auth-context';
 
-type UserRole =
+type UserRole = 
   | 'giam_thi'
-  | 'giao_vien_chu_nhiem'
   | 'homeroom_teacher'
   | 'hieu_truong'
   | 'pho_hieu_truong'
@@ -54,7 +49,6 @@ type UserRole =
 
 const ROLES = {
   giam_thi: 'Giám thị',
-  giao_vien_chu_nhiem: 'Giáo viên chủ nhiệm',
   homeroom_teacher: 'Giáo viên chủ nhiệm',
   hieu_truong: 'Hiệu trưởng',
   pho_hieu_truong: 'Phó hiệu trưởng',
@@ -73,8 +67,7 @@ interface User {
 const formatRole = (role: UserRole) => ROLES[role] || role;
 
 export default function UsersPage() {
-  // CHUẨN: Lấy user, loading, và isAdmin trực tiếp từ nguồn sự thật duy nhất.
-  const { user: authUser, loading: authLoading, isAdmin } = useAuth();
+  const { user: authUser, loading: authLoading, isSuperAdmin } = useAuth();
 
   const [users, setUsers] = useState<User[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -85,82 +78,37 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
 
   useEffect(() => {
-    // Chờ cho đến khi việc xác thực ban đầu hoàn tất.
     if (authLoading) {
       setDataLoading(true);
       return;
     }
-
-    // Nếu không có người dùng, báo lỗi và dừng lại.
-    if (!authUser) {
-      setError("Bạn phải đăng nhập để xem trang này.");
+    if (!isSuperAdmin) {
+      setError("Truy cập bị từ chối.");
       setDataLoading(false);
       setUsers([]);
       return;
     }
 
-    // Xác thực xong, có người dùng -> Bắt đầu lấy dữ liệu.
-    const fetchData = async () => {
-      try {
-        // Phần này vẫn cần thiết để xây dựng câu truy vấn cho đúng.
-        // Admin thấy tất cả, giáo viên chỉ thấy lớp của mình.
-        const userProfileRef = doc(db, 'users', authUser.uid);
-        const docSnap = await getDoc(userProfileRef);
-
-        if (!docSnap.exists()) {
-          setError("Không tìm thấy thông tin profile của bạn.");
-          setDataLoading(false);
-          return;
-        }
-
-        const currentUserProfile = docSnap.data() as User;
-        let usersQuery: Query<DocumentData> = collection(db, 'users');
-
-        // Xây dựng câu truy vấn dựa trên vai trò
-        // DÙNG `isAdmin` từ useAuth để quyết định có lọc dữ liệu không.
-        if (
-          !isAdmin &&
-          (currentUserProfile.role === 'homeroom_teacher' || currentUserProfile.role === 'giao_vien_chu_nhiem') &&
-          currentUserProfile.assignedClasses &&
-          currentUserProfile.assignedClasses.length > 0
-        ) {
-          usersQuery = query(
-            usersQuery,
-            where('assignedClasses', 'array-contains-any', currentUserProfile.assignedClasses)
-          );
-        }
-        const unsubscribe = onSnapshot(
-          usersQuery,
-          (snapshot) => {
-            const usersData = snapshot.docs.map((doc) => ({
-              id: doc.id, ...doc.data() as Omit<User, 'id'>,
-            }));
-            setUsers(usersData);
-            setError(null);
-            setDataLoading(false);
-          },
-          (err) => {
-            console.error("Lỗi snapshot:", err);
-            setError('Không thể tải danh sách người dùng.');
-            setDataLoading(false);
-          }
-        );
-
-        return unsubscribe;
-
-      } catch (err) {
-        console.error("Lỗi fetchData:", err);
-        setError("Đã có lỗi nghiêm trọng khi tải dữ liệu.");
+    const usersQuery = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(
+      usersQuery,
+      (snapshot) => {
+        const usersData = snapshot.docs.map((doc) => ({
+          id: doc.id, ...doc.data() as Omit<User, 'id'>,
+        }));
+        setUsers(usersData);
+        setError(null);
+        setDataLoading(false);
+      },
+      (err) => {
+        console.error("Lỗi snapshot:", err);
+        setError('Không thể tải danh sách người dùng.');
         setDataLoading(false);
       }
-    };
+    );
 
-    let unsubscribe: (() => void) | undefined;
-    fetchData().then(res => { unsubscribe = res; });
-
-    return () => { if (unsubscribe) unsubscribe(); };
-
-  }, [authUser, authLoading, isAdmin]);
+    return () => unsubscribe();
+  }, [authLoading, isSuperAdmin]);
 
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return users;
@@ -203,18 +151,29 @@ export default function UsersPage() {
     }
   };
   
-  // CHUẨN: Trạng thái loading cuối cùng là sự kết hợp của auth và data loading.
   const isLoading = authLoading || dataLoading;
+
+  if (isLoading) {
+    return <div className="p-8 text-center">Đang tải...</div>;
+  }
+
+  if (!isSuperAdmin) {
+    return (
+        <div className="p-8 text-center text-red-600 bg-red-50 rounded-lg">
+            <h1 className="text-2xl font-bold">Truy cập bị từ chối</h1>
+            <p>Bạn không có quyền truy cập trang này.</p>
+        </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-orange-600">Quản Lý Người Dùng</h1>
-          <p className="text-gray-500 mt-1">Thêm, sửa, và quản lý vai trò của người dùng trong hệ thống.</p>
+          <p className="text-gray-500 mt-1">Chỉ Quản trị viên tối cao mới có thể truy cập trang này.</p>
         </div>
-        {/* CHUẨN: Dùng `isAdmin` trực tiếp từ useAuth */}
-        {isAdmin && (
+        {isSuperAdmin && (
           <Button onClick={handleAddNewUser}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Thêm Người Dùng Mới
@@ -251,9 +210,7 @@ export default function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10">Đang tải...</TableCell></TableRow>
-              ) : error ? (
+              {error ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-10 text-red-500">{error}</TableCell></TableRow>
               ) : filteredUsers.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-10 text-gray-500">Không tìm thấy người dùng nào.</TableCell></TableRow>
@@ -265,8 +222,7 @@ export default function UsersPage() {
                     <TableCell>{user.role ? formatRole(user.role) : '-'}</TableCell>
                     <TableCell>{user.assignedClasses?.join(', ') || '-'}</TableCell>
                     <TableCell className="text-right">
-                      {/* CHUẨN: Dùng `isAdmin` trực tiếp từ useAuth */}
-                      {isAdmin && (
+                      {isSuperAdmin && (
                         <Button variant="outline" size="sm" onClick={() => handleEditUser(user)}>Sửa</Button>
                       )}
                     </TableCell>
@@ -308,7 +264,7 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
-            {(editingUser?.role === 'homeroom_teacher' || editingUser?.role === 'giao_vien_chu_nhiem') && (
+            {(editingUser?.role === 'homeroom_teacher') && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="assignedClasses" className="text-right">Lớp phụ trách</Label>
                 <Input

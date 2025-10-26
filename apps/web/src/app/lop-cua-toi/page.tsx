@@ -29,7 +29,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
-import { getAllClasses, Class } from '@/services/class.service';
+
+// BỎ DÒNG IMPORT GÂY LỖI
+// import { getAllClasses, Class } from '@/services/class.service';
+
+// THÊM INTERFACE ĐỊNH NGHĨA CLASS
+interface Class { id: string; name: string; gradeId: string; }
+
 
 // ================== HELPERS (Giữ nguyên) =====================
 const TOTAL_WEEKS = 35;
@@ -99,16 +105,21 @@ export default function MyClassPage() {
     setLoading(true);
     const fetchInitialData = async () => {
       try {
-        // Luôn fetch tất cả classes, rules, users. Server sẽ đảm nhiệm phân quyền.
+        // SỬA LẠI: Lấy dữ liệu lớp học trực tiếp từ Firestore
         const [rulesSnap, usersSnap, classesSnap] = await Promise.all([
           getDocs(collection(db, 'rules')),
           getDocs(collection(db, 'users')),
-          getAllClasses(), // Dùng service thống nhất
+          getDocs(collection(db, 'classes')), // THAY THẾ getAllClasses()
         ]);
 
         setRules(rulesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setAllClasses(classesSnap); // `getAllClasses` trả về mảng Class[] đã được sắp xếp
+        
+        // SỬA LẠI: Xử lý và sắp xếp dữ liệu lớp học
+        const collator = new Intl.Collator('vi', { numeric: true, sensitivity: 'base' });
+        const fetchedClasses = classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Class));
+        fetchedClasses.sort((a, b) => collator.compare(a.name, b.name));
+        setAllClasses(fetchedClasses);
 
       } catch (err) {
         console.error("Failed to fetch initial data", err);
@@ -130,10 +141,9 @@ export default function MyClassPage() {
     setLoading(true);
     setError(null);
 
-    // Fetch violations for the selected class and week. Firestore Rules will enforce access.
     const violationsQuery = query(
       collection(db, 'records'), 
-      where('classId', '==', selectedClassId),
+      where('classRef', '==', selectedClassId), // SỬA: Dùng classRef thay vì classId
       where('week', '==', Number(selectedWeek))
     );
 
@@ -147,7 +157,6 @@ export default function MyClassPage() {
       setLoading(false);
     });
 
-    // Fetch all weekly reports to build the chart
     const reportsQuery = query(collection(db, 'weekly_reports'));
     const unsubReports = onSnapshot(reportsQuery, (snapshot) => {
         setWeeklyReports(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeeklyReport)));
@@ -174,15 +183,13 @@ export default function MyClassPage() {
 
   const selectedClass = useMemo(() => allClasses.find(c => c.id === selectedClassId), [selectedClassId, allClasses]);
 
-  // Reset class selection when grade changes
   useEffect(() => {
     setSelectedClassId('all');
   }, [selectedGrade]);
 
-  // Stats and Chart data (Giữ nguyên logic tính toán, chỉ thay đổi dependency)
   const weeklyStats = useMemo(() => {
     const totalMerit = violations.filter(v => v.type === 'merit').reduce((sum, v) => sum + (Number(v.pointsApplied) || 0), 0);
-    const totalDemerit = violations.filter(v => v.type === 'demerit').reduce((sum, v) => sum + (Number(v.pointsApplied) || 0), 0);
+    const totalDemerit = violations.filter(v => v.type === 'demerit').reduce((sum, v) => sum + (Math.abs(Number(v.pointsApplied)) || 0), 0); // SỬA: Dùng Math.abs cho điểm trừ
     const errorCounts = violations.reduce((acc, v) => { if (v.ruleRef && v.type === 'demerit') { acc[v.ruleRef] = (acc[v.ruleRef] || 0) + 1; } return acc; }, {} as Record<string, number>);
     const commonErrorCode = Object.keys(errorCounts).reduce((a, b) => errorCounts[a] > errorCounts[b] ? a : b, 'Không có');
     return { totalMerit, totalDemerit, totalPoints: 1000 + totalMerit - totalDemerit, commonError: getRuleDescription(commonErrorCode, rules) };
@@ -221,7 +228,6 @@ export default function MyClassPage() {
               <CardTitle className="text-2xl">Tổng Quan Lớp Học</CardTitle>
               <CardDescription>Theo dõi điểm số và vi phạm của lớp qua từng tuần.</CardDescription>
             </div>
-            {/* Dropdowns luôn hiển thị cho mọi người dùng */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Select onValueChange={setSelectedGrade} value={selectedGrade}>
                 <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn khối" /></SelectTrigger>
@@ -247,7 +253,6 @@ export default function MyClassPage() {
           </div>
         </CardHeader>
 
-        {/* Nội dung chỉ hiển thị khi đã chọn một lớp cụ thể */}
         {selectedClassId !== 'all' && (
           <CardContent className="space-y-6">
             {loading ? (
@@ -256,14 +261,12 @@ export default function MyClassPage() {
                 <div className="text-center py-10 text-red-500">{error}</div>
             ) : (
               <>
-                {/* Stats Cards */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm tuần</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${weeklyStats.totalPoints >= 1000 ? 'text-green-600' : 'text-red-600'}`}>{weeklyStats.totalPoints}</div></CardContent></Card>
                   <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm cộng</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">+{weeklyStats.totalMerit}</div></CardContent></Card>
                   <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tổng điểm trừ</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-red-600">-{weeklyStats.totalDemerit}</div></CardContent></Card>
                   <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Lỗi phổ biến</CardTitle></CardHeader><CardContent><div className="text-md font-bold truncate" title={weeklyStats.commonError}>{weeklyStats.commonError}</div></CardContent></Card>
                 </div>
-                {/* Chart */}
                 <div className="h-[250px] w-full">
                   <CardTitle className="mb-4 text-xl">Biểu đồ Lịch sử Điểm</CardTitle>
                   <ResponsiveContainer>
@@ -282,7 +285,6 @@ export default function MyClassPage() {
         )}
       </Card>
       
-      {/* Bảng vi phạm chỉ hiển thị khi đã chọn lớp và không có lỗi */}
       {selectedClassId !== 'all' && !error && !loading && (
         <Card>
           <CardHeader>
