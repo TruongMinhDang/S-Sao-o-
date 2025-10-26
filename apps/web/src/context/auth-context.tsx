@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await currentUser.reload();
 
           // Sau khi reload, tạo một bản sao của đối tượng user để React nhận diện sự thay đổi
-          setUser({ ...currentUser });
+          setUser(Object.assign(Object.create(Object.getPrototypeOf(currentUser)), currentUser));
 
           const tokenResult = await currentUser.getIdTokenResult();
           const claims = tokenResult.claims;
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push(authRedirectRoutes.admin);
         } else if (isViewerAdmin) {
             router.push(authRedirectRoutes.viewerAdmin);
-        } else if (isHomeroomTeacher) {
+        } else if (isHomomTeacher) {
             router.push(authRedirectRoutes.teacher);
         } else {
             router.push(authRedirectRoutes.default);
