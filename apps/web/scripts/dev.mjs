@@ -1,18 +1,19 @@
-// Chuyển "9002 0.0.0.0" thành -p/-H cho next dev
+// scripts/dev.mjs
 import { spawn } from "node:child_process";
 
-const args = process.argv.slice(2);
-let port = process.env.PORT || 3000;
-let host = process.env.HOSTNAME || "0.0.0.0";
+console.log("[dev.mjs] Starting Next.js with auto-assigned port...");
 
-for (const a of args) {
-  if (/^\d+$/.test(a)) port = a;
-  else if (a.includes(".")) host = a;
-}
+const child = spawn("npx", ["next", "dev", "-H", "0.0.0.0"], {
+  stdio: "inherit",
+  shell: false,
+  env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=12288" }
+});
 
-const child = spawn(
-  "npx",
-  ["next", "dev", "-p", String(port), "-H", host],
-  { stdio: "inherit", shell: true }
-);
-child.on("exit", (code) => process.exit(code ?? 0));
+child.on("error", (err) => {
+  console.error("[dev.mjs] Failed to start:", err.message);
+  process.exit(1);
+});
+
+child.on("exit", (code) => {
+  process.exit(code ?? 0);
+});

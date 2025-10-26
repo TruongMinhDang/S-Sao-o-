@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push(authRedirectRoutes.admin);
         } else if (isViewerAdmin) {
             router.push(authRedirectRoutes.viewerAdmin);
-        } else if (isHomomTeacher) {
+        } else if (isHomeroomTeacher) {
             router.push(authRedirectRoutes.teacher);
         } else {
             router.push(authRedirectRoutes.default);

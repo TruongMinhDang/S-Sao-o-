@@ -2,7 +2,7 @@
   "name": "so-sao-do-web",
   "private": true,
   "scripts": {
-    "dev": "node --max-old-space-size=12288 scripts/dev.mjs --port 9002 --hostname 0.0.0.0",
+    "dev": "node --max-old-space-size=12288 scripts/dev.mjs",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint"
