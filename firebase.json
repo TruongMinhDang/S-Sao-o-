@@ -13,5 +13,8 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "hosting": {
+    "source": "apps/web"
   }
 }
