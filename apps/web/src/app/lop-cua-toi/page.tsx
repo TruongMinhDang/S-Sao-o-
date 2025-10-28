@@ -30,10 +30,6 @@ import {
 } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 
-// BỎ DÒNG IMPORT GÂY LỖI
-// import { getAllClasses, Class } from '@/services/class.service';
-
-// THÊM INTERFACE ĐỊNH NGHĨA CLASS
 interface Class { id: string; name: string; gradeId: string; }
 
 
@@ -105,17 +101,15 @@ export default function MyClassPage() {
     setLoading(true);
     const fetchInitialData = async () => {
       try {
-        // SỬA LẠI: Lấy dữ liệu lớp học trực tiếp từ Firestore
         const [rulesSnap, usersSnap, classesSnap] = await Promise.all([
           getDocs(collection(db, 'rules')),
           getDocs(collection(db, 'users')),
-          getDocs(collection(db, 'classes')), // THAY THẾ getAllClasses()
+          getDocs(collection(db, 'classes')),
         ]);
 
         setRules(rulesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         
-        // SỬA LẠI: Xử lý và sắp xếp dữ liệu lớp học
         const collator = new Intl.Collator('vi', { numeric: true, sensitivity: 'base' });
         const fetchedClasses = classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Class));
         fetchedClasses.sort((a, b) => collator.compare(a.name, b.name));
@@ -143,7 +137,7 @@ export default function MyClassPage() {
 
     const violationsQuery = query(
       collection(db, 'records'), 
-      where('classRef', '==', selectedClassId), // SỬA: Dùng classRef thay vì classId
+      where('classRef', '==', selectedClassId),
       where('week', '==', Number(selectedWeek))
     );
 
@@ -189,7 +183,7 @@ export default function MyClassPage() {
 
   const weeklyStats = useMemo(() => {
     const totalMerit = violations.filter(v => v.type === 'merit').reduce((sum, v) => sum + (Number(v.pointsApplied) || 0), 0);
-    const totalDemerit = violations.filter(v => v.type === 'demerit').reduce((sum, v) => sum + (Math.abs(Number(v.pointsApplied)) || 0), 0); // SỬA: Dùng Math.abs cho điểm trừ
+    const totalDemerit = violations.filter(v => v.type === 'demerit').reduce((sum, v) => sum + (Math.abs(Number(v.pointsApplied)) || 0), 0);
     const errorCounts = violations.reduce((acc, v) => { if (v.ruleRef && v.type === 'demerit') { acc[v.ruleRef] = (acc[v.ruleRef] || 0) + 1; } return acc; }, {} as Record<string, number>);
     const commonErrorCode = Object.keys(errorCounts).reduce((a, b) => errorCounts[a] > errorCounts[b] ? a : b, 'Không có');
     return { totalMerit, totalDemerit, totalPoints: 1000 + totalMerit - totalDemerit, commonError: getRuleDescription(commonErrorCode, rules) };
