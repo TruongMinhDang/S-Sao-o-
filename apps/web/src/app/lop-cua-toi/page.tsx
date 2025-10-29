@@ -74,11 +74,11 @@ const getUserName = (supervisorRef: string | undefined, users: any[]) => {
 };
 
 
-// ================== TYPES (Giữ nguyên) =====================
-interface Violation { id: string; studentId?: string; studentName: string; ruleRef?: string; pointsApplied?: number; recordDate: { seconds: number; }; supervisorRef?: string; className?: string; classRef?: string; week?: number; type?: 'merit' | 'demerit'; }
+// ================== TYPES (SỬA LỖI) =====================
+interface Violation { id: string; studentId?: string; studentName: string; ruleRef?: string; pointsApplied?: number; recordDate?: { seconds: number; }; supervisorRef?: string; className?: string; classRef?: string; week?: number; type?: 'merit' | 'demerit'; }
 interface WeeklyReport { id: string; weekNumber: number; scores: { [className: string]: number; } }
 
-// ================== PAGE COMPONENT (REWRITTEN) =====================
+// ================== PAGE COMPONENT (SỬA LỖI) =====================
 export default function MyClassPage() {
   // --- STATE MANAGEMENT --- 
   const [allClasses, setAllClasses] = useState<Class[]>([]);
@@ -96,7 +96,6 @@ export default function MyClassPage() {
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
 
   // --- UNIFIED DATA FETCHING --- 
-  // 1. Fetch background data (rules, users, and ALL classes) for everyone
   useEffect(() => {
     setLoading(true);
     const fetchInitialData = async () => {
@@ -125,7 +124,6 @@ export default function MyClassPage() {
     fetchInitialData();
   }, []);
 
-  // 2. Fetch violations and reports when a class/week is selected
   useEffect(() => {
     if (selectedClassId === 'all') {
         setViolations([]);
@@ -143,7 +141,8 @@ export default function MyClassPage() {
 
     const unsubViolations = onSnapshot(violationsQuery, (snapshot) => {
       const fetchedViolations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Violation));
-      setViolations(fetchedViolations.sort((a,b) => b.recordDate.seconds - a.recordDate.seconds));
+      // FIX: Sắp xếp an toàn, coi các bản ghi không có ngày là cũ nhất
+      setViolations(fetchedViolations.sort((a, b) => (b.recordDate?.seconds || 0) - (a.recordDate?.seconds || 0)));
       setLoading(false);
     }, (err) => {
       console.error(err);
@@ -296,7 +295,19 @@ export default function MyClassPage() {
                     {violations.map((v, index) => (
                       <TableRow key={v.id}>
                         <TableCell>{index + 1}</TableCell>
-                        <TableCell>{v.recordDate ? new Date(v.recordDate.seconds * 1000).toLocaleString('vi-VN') : 'N/A'}</TableCell>
+                        <TableCell>
+                          {/* FIX: Hiển thị đúng múi giờ và định dạng đẹp hơn */}
+                          {v.recordDate?.seconds 
+                            ? new Date(v.recordDate.seconds * 1000).toLocaleString('vi-VN', { 
+                                timeZone: 'Asia/Ho_Chi_Minh',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }).replace(',', '')
+                            : 'N/A'}
+                        </TableCell>
                         <TableCell className="font-medium">{v.studentName || 'N/A'}</TableCell>
                         <TableCell><div>{getRuleDescription(v.ruleRef, rules)}</div><div className="text-xs text-gray-500">Người ghi nhận: {getUserName(v.supervisorRef, users)}</div></TableCell>
                         <TableCell className="text-center font-semibold"><span className={ (v.pointsApplied || 0) > 0 ? 'text-green-600' : (v.pointsApplied || 0) < 0 ? 'text-red-600' : 'text-gray-500' }>{(v.pointsApplied || 0) > 0 ? '+' : ''}{v.pointsApplied || 0}</span></TableCell>
