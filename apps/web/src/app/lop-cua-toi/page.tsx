@@ -3,7 +3,7 @@
       import { useEffect, useMemo, useState } from 'react';
       import Link from 'next/link';
       import { db } from '@/lib/firebase-client';
-      import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+      import { collection, getDocs, query, where, onSnapshot, orderBy } from 'firebase/firestore';
       import {
         Table,
         TableBody,
@@ -74,7 +74,7 @@
       };
       
       
-      // ================== TYPES (SỬA LỖI) =====================
+      // ================== TYPES (Giữ nguyên) =====================
       interface Violation { id: string; studentId?: string; studentName: string; ruleRef?: string; pointsApplied?: number; recordDate?: { seconds: number; }; supervisorRef?: string; className?: string; classRef?: string; week?: number; type?: 'merit' | 'demerit'; }
       interface WeeklyReport { id: string; weekNumber: number; scores: { [className: string]: number; } }
       
@@ -133,16 +133,18 @@
          setLoading(true);
          setError(null);
      
+         // SỬA ĐỔI: Thêm orderBy để sắp xếp dữ liệu mới nhất trên cùng từ database
          const violationsQuery = query(
            collection(db, 'records'), 
            where('classRef', '==', selectedClassId),
-           where('week', '==', Number(selectedWeek))
+           where('week', '==', Number(selectedWeek)),
+           orderBy('recordDate', 'desc')
          );
      
          const unsubViolations = onSnapshot(violationsQuery, (snapshot) => {
            const fetchedViolations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Violation));
-           // FIX: Sắp xếp an toàn, coi các bản ghi không có ngày là cũ nhất
-           setViolations(fetchedViolations.sort((a, b) => (b.recordDate?.seconds || 0) - (a.recordDate?.seconds || 0)));
+           // Dữ liệu đã được sắp xếp từ query, không cần sort ở client nữa
+           setViolations(fetchedViolations);
            setLoading(false);
          }, (err) => {
            console.error(err);
@@ -163,9 +165,8 @@
          };
        }, [selectedClassId, selectedWeek]);
        
-       // --- UNIFIED DERIVED STATE & UI LOGIC --- 
+       // --- UNIFIED DERIVED STATE & UI LOGIC (Giữ nguyên) --- 
        const availableGrades = useMemo(() =>
-        // FIX: Ensure only valid, non-empty strings are processed
         Array.from(new Set(allClasses.map(c => c.gradeId).filter(g => typeof g === 'string' && g))).sort(),
         [allClasses]
        );
@@ -212,7 +213,7 @@
          return { min: min - pad, max: max + pad };
        }, [chartData]);
      
-       // --- UNIFIED RENDER --- 
+       // --- UNIFIED RENDER (SỬA ĐỔI) --- 
        return (
          <div className="space-y-6">
            <Card>
@@ -225,9 +226,9 @@
                  <div className="flex flex-col sm:flex-row gap-4">
                    <Select onValueChange={setSelectedGrade} value={selectedGrade}>
                      <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn khối" /></SelectTrigger>
-                     <SelectContent>
+                     {/* SỬA ĐỔI: Thêm class để sửa lỗi nền trắng ở dark mode */}
+                     <SelectContent className="bg-popover">
                        <SelectItem value="all">Tất cả các khối</SelectItem>
-                       {/* FIX: Simplified and safe rendering */}
                        {availableGrades.map(g => {
                         const gradeLabel = g.split('_')[1] || g;
                         return <SelectItem key={g} value={g}>{`Khối ${gradeLabel}`}</SelectItem>;
@@ -236,14 +237,16 @@
                    </Select>
                    <Select onValueChange={setSelectedClassId} value={selectedClassId}>
                      <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn lớp" /></SelectTrigger>
-                     <SelectContent>
+                     {/* SỬA ĐỔI: Thêm class để sửa lỗi nền trắng ở dark mode */}
+                     <SelectContent className="bg-popover">
                        <SelectItem value="all">-- Chọn lớp --</SelectItem>
                        {availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                      </SelectContent>
                    </Select>
                    <Select onValueChange={setSelectedWeek} value={selectedWeek}>
                      <SelectTrigger className="w-full sm:w-[280px]"><SelectValue placeholder="Chọn tuần" /></SelectTrigger>
-                     <SelectContent className="max-h-72">
+                      {/* SỬA ĐỔI: Thêm class để sửa lỗi nền trắng ở dark mode */}
+                     <SelectContent className="max-h-72 bg-popover">
                        {weeksOptions.map(week => <SelectItem key={week.value} value={week.value}>{week.label}</SelectItem>)}
                      </SelectContent>
                    </Select>
@@ -301,7 +304,6 @@
                            <TableRow key={v.id}>
                              <TableCell>{index + 1}</TableCell>
                              <TableCell>
-                               {/* FIX: Hiển thị đúng múi giờ và định dạng đẹp hơn */}
                                {v.recordDate?.seconds 
                                  ? new Date(v.recordDate.seconds * 1000).toLocaleString('vi-VN', { 
                                      timeZone: 'Asia/Ho_Chi_Minh',
