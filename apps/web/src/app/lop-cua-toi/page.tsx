@@ -3,7 +3,7 @@
       import { useEffect, useMemo, useState } from 'react';
       import Link from 'next/link';
       import { db } from '@/lib/firebase-client';
-      import { collection, getDocs, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+      import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
       import {
         Table,
         TableBody,
@@ -78,7 +78,7 @@
       interface Violation { id: string; studentId?: string; studentName: string; ruleRef?: string; pointsApplied?: number; recordDate?: { seconds: number; }; supervisorRef?: string; className?: string; classRef?: string; week?: number; type?: 'merit' | 'demerit'; }
       interface WeeklyReport { id: string; weekNumber: number; scores: { [className: string]: number; } }
       
-      // ================== PAGE COMPONENT (SỬA LỖI) =====================
+      // ================== PAGE COMPONENT (SỬA LỖI & HOÀN TÁC) =====================
       export default function MyClassPage() {
         // --- STATE MANAGEMENT --- 
         const [allClasses, setAllClasses] = useState<Class[]>([]);
@@ -133,22 +133,22 @@
          setLoading(true);
          setError(null);
      
-         // SỬA ĐỔI: Thêm orderBy để sắp xếp dữ liệu mới nhất trên cùng từ database
+         // HOÀN TÁC: Xóa bỏ orderBy để khắc phục lỗi thiếu index
          const violationsQuery = query(
            collection(db, 'records'), 
            where('classRef', '==', selectedClassId),
-           where('week', '==', Number(selectedWeek)),
-           orderBy('recordDate', 'desc')
+           where('week', '==', Number(selectedWeek))
          );
      
          const unsubViolations = onSnapshot(violationsQuery, (snapshot) => {
            const fetchedViolations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Violation));
-           // Dữ liệu đã được sắp xếp từ query, không cần sort ở client nữa
-           setViolations(fetchedViolations);
+           // Sắp xếp lại ở client-side để đảm bảo thứ tự đúng
+           setViolations(fetchedViolations.sort((a, b) => (b.recordDate?.seconds || 0) - (a.recordDate?.seconds || 0)));
            setLoading(false);
          }, (err) => {
            console.error(err);
-           setError(`Không thể tải dữ liệu vi phạm. Bạn có thể không có quyền xem lớp này.`);
+           // Cập nhật thông báo lỗi cho rõ ràng hơn
+           setError(`Không thể tải dữ liệu vi phạm. Lỗi: ${err.message}`);
            setLoading(false);
          });
      
@@ -179,8 +179,12 @@
        const selectedClass = useMemo(() => allClasses.find(c => c.id === selectedClassId), [selectedClassId, allClasses]);
      
        useEffect(() => {
-         setSelectedClassId('all');
-       }, [selectedGrade]);
+         if (availableClasses.length > 0 && selectedGrade !== 'all') {
+            setSelectedClassId(availableClasses[0].id);
+         } else {
+            setSelectedClassId('all');
+         }
+       }, [availableClasses, selectedGrade]);
      
        const weeklyStats = useMemo(() => {
          const totalMerit = violations.filter(v => v.type === 'merit').reduce((sum, v) => sum + (Number(v.pointsApplied) || 0), 0);
@@ -213,7 +217,7 @@
          return { min: min - pad, max: max + pad };
        }, [chartData]);
      
-       // --- UNIFIED RENDER (SỬA ĐỔI) --- 
+       // --- UNIFIED RENDER (Giữ nguyên) --- 
        return (
          <div className="space-y-6">
            <Card>
@@ -226,7 +230,6 @@
                  <div className="flex flex-col sm:flex-row gap-4">
                    <Select onValueChange={setSelectedGrade} value={selectedGrade}>
                      <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn khối" /></SelectTrigger>
-                     {/* SỬA ĐỔI: Thêm class để sửa lỗi nền trắng ở dark mode */}
                      <SelectContent className="bg-popover">
                        <SelectItem value="all">Tất cả các khối</SelectItem>
                        {availableGrades.map(g => {
@@ -237,7 +240,6 @@
                    </Select>
                    <Select onValueChange={setSelectedClassId} value={selectedClassId}>
                      <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn lớp" /></SelectTrigger>
-                     {/* SỬA ĐỔI: Thêm class để sửa lỗi nền trắng ở dark mode */}
                      <SelectContent className="bg-popover">
                        <SelectItem value="all">-- Chọn lớp --</SelectItem>
                        {availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -245,7 +247,6 @@
                    </Select>
                    <Select onValueChange={setSelectedWeek} value={selectedWeek}>
                      <SelectTrigger className="w-full sm:w-[280px]"><SelectValue placeholder="Chọn tuần" /></SelectTrigger>
-                      {/* SỬA ĐỔI: Thêm class để sửa lỗi nền trắng ở dark mode */}
                      <SelectContent className="max-h-72 bg-popover">
                        {weeksOptions.map(week => <SelectItem key={week.value} value={week.value}>{week.label}</SelectItem>)}
                      </SelectContent>
