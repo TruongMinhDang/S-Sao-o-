@@ -30,6 +30,7 @@ import {
 import { AddStudentDialog } from './add-student-dialog'
 import Link from 'next/link'
 import { useAuth } from '@/context/auth-context'
+import { getGradeFromClass, formatClassName } from '@/lib/utils'
 
 interface Student {
   id: string
@@ -38,20 +39,6 @@ interface Student {
   class: string
   totalPlusPoints: number
   totalMinusPoints: number
-}
-
-// Tách số lớp để nhận diện khối (ví dụ: "class_9_1" → "9")
-const getGradeFromClass = (className: string): string => {
-  if (!className) return ''
-  const match = className.match(/_(\d+)/)
-  return match ? match[1] : ''
-}
-
-// Định dạng tên lớp để hiển thị (ví dụ: "class_6_1" → "6/1")
-const formatClassName = (className: string): string => {
-  if (!className || !className.startsWith('class_')) return className
-  // Bỏ 'class_' và thay các dấu '_' còn lại bằng '/'
-  return className.substring('class_'.length).replace(/_/g, '/')
 }
 
 export default function HocSinhPage() {
