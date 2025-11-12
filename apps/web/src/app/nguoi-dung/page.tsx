@@ -205,21 +205,27 @@ export default function UsersPage() {
                 <TableHead>Tên hiển thị</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Vai trò</TableHead>
+                <TableHead>Trạng thái</TableHead>
                 <TableHead>Lớp Phụ Trách</TableHead>
                 <TableHead className="text-right">Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {error ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10 text-red-500">{error}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-10 text-red-500">{error}</TableCell></TableRow>
               ) : filteredUsers.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10 text-gray-500">Không tìm thấy người dùng nào.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-10 text-gray-500">Không tìm thấy người dùng nào.</TableCell></TableRow>
               ) : (
                 filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.displayName || '-'}</TableCell>
                     <TableCell>{user.email || '-'}</TableCell>
                     <TableCell>{user.role ? formatRole(user.role) : '-'}</TableCell>
+                    <TableCell>
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-700">
+                        Chưa rõ
+                      </span>
+                    </TableCell>
                     <TableCell>{user.assignedClasses?.join(', ') || '-'}</TableCell>
                     <TableCell className="text-right">
                       {isSuperAdmin && (

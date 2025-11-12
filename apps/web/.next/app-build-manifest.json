@@ -12,7 +12,7 @@
       "static/chunks/fd9d1056-fb0b8c8f080b81a3.js",
       "static/chunks/117-16fc289089dc4318.js",
       "static/chunks/main-app-cddb49c7a3ef7a7f.js",
-      "static/css/005b93af8d24e496.css",
+      "static/css/559dc7d9a2199148.css",
       "static/chunks/70c02fcd-1917c902269b39f0.js",
       "static/chunks/947fc376-d0c8434ec3a790bd.js",
       "static/chunks/943-725902ca6ef8cf1a.js",
@@ -66,6 +66,18 @@
       "static/chunks/145-9569d7067de3ec19.js",
       "static/chunks/app/ghi-nhan/page-a19dba1fd16b14d3.js"
     ],
+    "/ho-so/page": [
+      "static/chunks/webpack-f959edae3c1e3561.js",
+      "static/chunks/fd9d1056-fb0b8c8f080b81a3.js",
+      "static/chunks/117-16fc289089dc4318.js",
+      "static/chunks/main-app-cddb49c7a3ef7a7f.js",
+      "static/chunks/70c02fcd-1917c902269b39f0.js",
+      "static/chunks/947fc376-d0c8434ec3a790bd.js",
+      "static/chunks/943-725902ca6ef8cf1a.js",
+      "static/chunks/332-46d65cf3947ccb11.js",
+      "static/chunks/508-195a45c610f4a862.js",
+      "static/chunks/app/ho-so/page-79842d843bb2267a.js"
+    ],
     "/hoc-sinh/[id]/page": [
       "static/chunks/webpack-f959edae3c1e3561.js",
       "static/chunks/fd9d1056-fb0b8c8f080b81a3.js",
@@ -80,18 +92,6 @@
       "static/chunks/960-5facc0ad4f038270.js",
       "static/chunks/34-6295090d4df42ca2.js",
       "static/chunks/app/hoc-sinh/[id]/page-f24766d722650c4a.js"
-    ],
-    "/ho-so/page": [
-      "static/chunks/webpack-f959edae3c1e3561.js",
-      "static/chunks/fd9d1056-fb0b8c8f080b81a3.js",
-      "static/chunks/117-16fc289089dc4318.js",
-      "static/chunks/main-app-cddb49c7a3ef7a7f.js",
-      "static/chunks/70c02fcd-1917c902269b39f0.js",
-      "static/chunks/947fc376-d0c8434ec3a790bd.js",
-      "static/chunks/943-725902ca6ef8cf1a.js",
-      "static/chunks/332-46d65cf3947ccb11.js",
-      "static/chunks/508-195a45c610f4a862.js",
-      "static/chunks/app/ho-so/page-79842d843bb2267a.js"
     ],
     "/hoc-sinh/page": [
       "static/chunks/webpack-f959edae3c1e3561.js",
@@ -153,7 +153,7 @@
       "static/chunks/498-508fce2116828624.js",
       "static/chunks/32-ab8ea944cb7479bb.js",
       "static/chunks/732-bfc22190fc3ba00c.js",
-      "static/chunks/app/nguoi-dung/page-a4e60a2623cb578b.js"
+      "static/chunks/app/nguoi-dung/page-2e4a98c994ea29a0.js"
     ],
     "/page": [
       "static/chunks/webpack-f959edae3c1e3561.js",
