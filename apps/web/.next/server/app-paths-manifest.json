@@ -1,3 +1,24 @@
 {
-  "/page": "app/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/action/page": "app/auth/action/page.js",
+  "/bang-xep-hang/page": "app/bang-xep-hang/page.js",
+  "/ghi-nhan/page": "app/ghi-nhan/page.js",
+  "/ho-so/page": "app/ho-so/page.js",
+  "/hoc-sinh/[id]/page": "app/hoc-sinh/[id]/page.js",
+  "/hoc-sinh/page": "app/hoc-sinh/page.js",
+  "/login/page": "app/login/page.js",
+  "/lop-cua-toi/page": "app/lop-cua-toi/page.js",
+  "/nguoi-dung/page": "app/nguoi-dung/page.js",
+  "/page": "app/page.js",
+  "/routes/bang-xep-hang/page": "app/routes/bang-xep-hang/page.js",
+  "/routes/ghi-nhan/page": "app/routes/ghi-nhan/page.js",
+  "/routes/hoc-sinh/page": "app/routes/hoc-sinh/page.js",
+  "/routes/page": "app/routes/page.js",
+  "/routes/rules/page": "app/routes/rules/page.js",
+  "/routes/tong-quan/page": "app/routes/tong-quan/page.js",
+  "/rules/page": "app/rules/page.js",
+  "/thong-bao/page": "app/thong-bao/page.js",
+  "/tong-quan/page": "app/tong-quan/page.js",
+  "/(admin)/quan-tri/page": "app/(admin)/quan-tri/page.js",
+  "/(admin)/reports/page": "app/(admin)/reports/page.js"
 }
