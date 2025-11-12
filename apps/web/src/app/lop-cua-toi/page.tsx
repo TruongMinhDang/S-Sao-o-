@@ -244,7 +244,11 @@ return (
               </Select>
             )}
             <Select onValueChange={setSelectedClassId} value={selectedClassId}>
-              <SelectTrigger className={`w-full ${isAdmin ? 'sm:w-[240px]' : 'sm:w-[180px]'}`}><SelectValue placeholder="Chọn lớp" /></SelectTrigger>
+                <SelectTrigger className={`w-full ${isAdmin ? 'sm:w-[240px]' : 'sm:w-[180px]'}`}>
+                    <SelectValue placeholder="-- Chọn lớp --">
+                        {selectedClass ? selectedClass.name : '-- Chọn lớp --'}
+                    </SelectValue>
+                </SelectTrigger>
               <SelectContent className="bg-popover">
                 <SelectItem value="all">-- Chọn lớp --</SelectItem>
                 {availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
