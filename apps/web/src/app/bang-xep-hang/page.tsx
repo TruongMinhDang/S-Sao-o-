@@ -8,29 +8,34 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { getFirestore, doc, setDoc, collection, query, where, onSnapshot, DocumentData } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, collection, query, where, onSnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
 import { app } from '@/lib/firebase-client';
+import { formatClassName, getGradeFromClass } from '@/lib/utils';
 
 const db = getFirestore(app);
 
 // ================== TYPES =====================
+interface ManualScoreData {
+    hoc_tap?: number;
+    ky_luat?: number;
+    ve_sinh?: number;
+    nhan_xet?: string;
+}
+
 interface ManualScores {
     [gradeName: string]: {
-        [className: string]: {
-            hoc_tap?: number;
-            ky_luat?: number;
-            ve_sinh?: number;
-            nhan_xet?: string;
-        }
+        [className: string]: ManualScoreData;
     }
+}
+
+interface RecordScoreData {
+    diem_cong: number;
+    diem_tru: number;
 }
 
 interface RecordScores {
     [gradeName: string]: {
-        [className: string]: {
-            diem_cong: number;
-            diem_tru: number;
-        }
+        [className: string]: RecordScoreData;
     }
 }
 
@@ -40,6 +45,13 @@ interface EditingClass {
     scores: DocumentData;
 }
 
+interface EditScoreModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (scores: ManualScoreData) => void;
+  classData: EditingClass | null;
+}
+
 
 // ================== HELPERS =====================
 const TERM_START = new Date(new Date().getFullYear(), 8, 8); // Use current year, September 8
@@ -47,8 +59,8 @@ const TOTAL_WEEKS = 35;
 const MS_DAY = 86400000;
 const mid = (d: Date) => { const t = new Date(d); t.setHours(0,0,0,0); return t; };
 
-const getWeeks = () => {
-  const out = [];
+const getWeeks = (): string[] => {
+  const out: string[] = [];
   for (let w=1; w<=TOTAL_WEEKS; w++) {
     const start = new Date(mid(TERM_START).getTime() + (w-1)*7*MS_DAY);
     const end = new Date(start.getTime() + 6*MS_DAY);
@@ -58,7 +70,7 @@ const getWeeks = () => {
   return out;
 };
 
-const getCurrentWeekName = () => {
+const getCurrentWeekName = (): string => {
   const now = new Date();
   const diff = Math.floor((mid(now).getTime() - mid(TERM_START).getTime())/MS_DAY);
   const weekNumber = Math.max(1, Math.min(TOTAL_WEEKS, Math.floor(diff/7)+1));
@@ -66,16 +78,7 @@ const getCurrentWeekName = () => {
   return week || getWeeks()[0];
 }
 
-const getGradeFromClassRef = (classRef: string): string => {
-    if (!classRef) return '';
-    const match = classRef.match(/class_(\d+)_/);
-    return match ? match[1] : '';
-};
-const formatClassName = (classRef: string): string => {
-    if (!classRef || !classRef.startsWith('class_')) return classRef;
-    return classRef.substring('class_'.length).replace(/_/g, '/');
-};
-const createClassId = (className: string) => `class_${className.replace('/', '_')}`;
+const createClassId = (className: string): string => `class_${className.replace('/', '_')}`;
 
 const grades = [
     { name: "Khối 6", classes: ["6/1", "6/2", "6/3", "6/4", "6/5", "6/6", "6/7", "6/8", "6/9", "6/10"] },
@@ -98,28 +101,34 @@ const tableDataStructure = [
 const weeks = getWeeks();
 const initialWeek = getCurrentWeekName();
 
-// ================== MODAL COMPONENT (Giữ nguyên) =====================
-function EditScoreModal({ isOpen, onClose, onSave, classData }: { isOpen: boolean, onClose: () => void, onSave: (scores: any) => void, classData: EditingClass | null }) {
-    if (!isOpen || !classData) return null;
+// ================== MODAL COMPONENT (Đã được tách ra) =====================
+function EditScoreModal({ isOpen, onClose, onSave, classData }: EditScoreModalProps) {
+    const [scores, setScores] = useState<ManualScoreData>({});
 
-    const [scores, setScores] = useState({
-        hoc_tap: classData.scores.hoc_tap || 0,
-        ky_luat: classData.scores.ky_luat || 0,
-        ve_sinh: classData.scores.ve_sinh || 0,
-        nhan_xet: classData.scores.nhan_xet || ''
-    });
+    useEffect(() => {
+        if (classData) {
+            setScores({
+                hoc_tap: classData.scores.hoc_tap || 0,
+                ky_luat: classData.scores.ky_luat || 0,
+                ve_sinh: classData.scores.ve_sinh || 0,
+                nhan_xet: classData.scores.nhan_xet || ''
+            });
+        }
+    }, [classData]);
+
+    if (!isOpen || !classData) return null;
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         const isNumeric = ['hoc_tap', 'ky_luat', 've_sinh'].includes(name);
-        setScores(prev => ({ ...prev, [name]: isNumeric ? (value === '' ? '' : Number(value)) : value }));
+        setScores(prev => ({ ...prev, [name]: isNumeric ? (value === '' ? undefined : Number(value)) : value }));
     };
 
     const handleSave = () => {
-        const scoresToSave = {
-            hoc_tap: scores.hoc_tap === '' ? 0 : scores.hoc_tap,
-            ky_luat: scores.ky_luat === '' ? 0 : scores.ky_luat,
-            ve_sinh: scores.ve_sinh === '' ? 0 : scores.ve_sinh,
+        const scoresToSave: ManualScoreData = {
+            hoc_tap: scores.hoc_tap ?? 0,
+            ky_luat: scores.ky_luat ?? 0,
+            ve_sinh: scores.ve_sinh ?? 0,
             nhan_xet: scores.nhan_xet
         };
         onSave(scoresToSave);
@@ -133,19 +142,19 @@ function EditScoreModal({ isOpen, onClose, onSave, classData }: { isOpen: boolea
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Học tập</label>
-                        <input type="number" name="hoc_tap" value={scores.hoc_tap} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input type="number" name="hoc_tap" value={scores.hoc_tap ?? ''} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Kỷ luật</label>
-                        <input type="number" name="ky_luat" value={scores.ky_luat} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input type="number" name="ky_luat" value={scores.ky_luat ?? ''} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Vệ sinh</label>
-                        <input type="number" name="ve_sinh" value={scores.ve_sinh} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input type="number" name="ve_sinh" value={scores.ve_sinh ?? ''} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Nhận xét</label>
-                        <input type="text" name="nhan_xet" value={scores.nhan_xet} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input type="text" name="nhan_xet" value={scores.nhan_xet ?? ''} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                     </div>
                 </div>
                 <div className="mt-6 flex justify-end space-x-4">
@@ -185,15 +194,15 @@ export default function BangXepHangPage() {
             }
         });
         setManualScores(newManualScores);
-    }, (err) => {
+    }, (err: FirestoreError) => {
         console.error("onSnapshot error (weeklyScores):", err);
         setManualScores({});
-        if ((err as any)?.code === "failed-precondition") {
+        if (err.code === "failed-precondition") {
           setError("Thiếu index cho truy vấn. Mở Console → bấm link 'Create index'.");
-        } else if ((err as any)?.code === "permission-denied") {
+        } else if (err.code === "permission-denied") {
           setError("Không đủ quyền đọc dữ liệu. Kiểm tra Firestore Rules.");
         } else {
-          setError(`Lỗi đọc dữ liệu: ${(err as any)?.message || String(err)}`);
+          setError(`Lỗi đọc dữ liệu: ${err.message || String(err)}`);
         }
     });
 
@@ -219,7 +228,7 @@ export default function BangXepHangPage() {
         snapshot.forEach((doc) => {
             const record = doc.data();
             if (!record.classRef || !record.type) return;
-            const gradeName = `Khối ${getGradeFromClassRef(record.classRef)}`;
+            const gradeName = `Khối ${getGradeFromClass(record.classRef)}`;
             const className = formatClassName(record.classRef);
             if (newRecordScores[gradeName] && newRecordScores[gradeName][className]) {
                 const points = Number(record.pointsApplied || 0);
@@ -231,15 +240,15 @@ export default function BangXepHangPage() {
             }
         });
         setRecordScores(newRecordScores);
-    }, (err) => {
+    }, (err: FirestoreError) => {
         console.error("onSnapshot error (records):", err);
         setRecordScores({});
-        if ((err as any)?.code === "failed-precondition") {
+        if (err.code === "failed-precondition") {
           setError("Thiếu index cho truy vấn. Mở Console → bấm link 'Create index'.");
-        } else if ((err as any)?.code === "permission-denied") {
+        } else if (err.code === "permission-denied") {
           setError("Không đủ quyền đọc dữ liệu. Kiểm tra Firestore Rules.");
         } else {
-          setError(`Lỗi đọc dữ liệu: ${(err as any)?.message || String(err)}`);
+          setError(`Lỗi đọc dữ liệu: ${err.message || String(err)}`);
         }
     });
     
@@ -289,7 +298,7 @@ export default function BangXepHangPage() {
       setModalOpen(true);
   };
 
-  const handleSaveScore = async (newScores: any) => {
+  const handleSaveScore = async (newScores: ManualScoreData) => {
       if (!editingClass) return;
       const { gradeName, className } = editingClass;
       const weekNumber = selectedWeek.match(/\d+/)?.[0];
@@ -365,7 +374,7 @@ export default function BangXepHangPage() {
                           const data = displayData[grade.name]?.[className];
                           const value = data?.[row.key] ?? (row.key === 'nhan_xet' ? '' : 0);
                           
-                          let displayValue: any = value;
+                          let displayValue: string | number = value;
                           let cellClasses = `p-3 text-center border-r border-b ${colors.border} flex items-center justify-center font-medium`;
 
                           if (row.key === 'hang') {
