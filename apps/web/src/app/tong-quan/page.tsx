@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, ClipboardList, Trophy, BookCheck, Shield, User, BarChart3, Edit, Building } from 'lucide-react';
+import { Users, Trophy, BookCheck, Shield, User, BarChart3, Edit, Building } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
 // 1. Cập nhật cấu trúc features để sử dụng vai trò mới
@@ -106,6 +106,12 @@ export default function TongQuanPage() {
         <h1 className="text-3xl font-bold tracking-tight">Tổng Quan</h1>
         <p className="text-muted-foreground">Chọn một chức năng để bắt đầu làm việc.</p>
       </div>
+
+      {!auth.userProfile?.role && (
+          <div className="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
+              <span className="font-medium">Chú ý!</span> Tài khoản của bạn hiện chưa được phân quyền. Vui lòng liên hệ quản trị viên để được cấp quyền truy cập các chức năng quản lý.
+          </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {availableFeatures.map(feature => (

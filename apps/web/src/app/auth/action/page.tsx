@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   applyActionCode,
-  checkActionCode,
   confirmPasswordReset,
   verifyPasswordResetCode,
   getAuth
@@ -52,6 +51,7 @@ export default function AuthActionPage() {
             break;
         }
       } catch (error) {
+        console.error(error);
         setStatus('error');
         setMessage('Link không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.');
       }
@@ -73,6 +73,7 @@ export default function AuthActionPage() {
       setMessage('Mật khẩu của bạn đã được thay đổi thành công. Đang chuyển hướng đến trang đăng nhập...');
       setTimeout(() => router.push('/login'), 3000);
     } catch (error) {
+      console.error(error);
       setStatus('error');
       setMessage('Đã xảy ra lỗi. Vui lòng thử lại.');
     }
