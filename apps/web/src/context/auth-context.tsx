@@ -75,6 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             assignedClasses: finalClasses,
           };
           setUserProfile(profile);
+
+          // DEBUG: Log role để kiểm tra nếu role không được set đúng
+          if (!profile.role) {
+             console.warn(`User logged in but has no 'role' claim. User ID: ${currentUser.uid}, Email: ${currentUser.email}`);
+          }
         } catch (error) {
           console.error("Error fetching user claims:", error);
           setUserProfile(null);
@@ -102,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPublicPath = publicPaths.includes(pathname);
 
     if (user) { // User is logged in
+      // Chỉ redirect nếu user đang ở trang public (login) hoặc trang root
+      // Nếu user truy cập trực tiếp link (ví dụ /lop-cua-toi), KHÔNG redirect về dashboard mặc định
       if (isPublicPath || pathname === '/') {
         if (isSuperAdmin) {
             router.push(authRedirectRoutes.admin);
