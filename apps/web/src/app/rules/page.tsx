@@ -399,7 +399,7 @@ export default function RulesPage() {
               <Select
                 name="type"
                 value={(currentRule.type as string) ?? 'merit'}
-                onValueChange={(value) => handleSelectChange('type', value)}
+                onValueChange={(value: string) => handleSelectChange('type', value)}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn loại điểm" />

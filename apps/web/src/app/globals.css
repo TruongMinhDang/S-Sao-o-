@@ -48,3 +48,24 @@
     --ring: 215 20.2% 65.1%;
   }
 }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* --- FIX MÀU SELECT – BẮT BUỘC THÊM VÀO --- */
+@layer components {
+  .select-trigger-fixed {
+    @apply w-full border bg-white text-black px-3 py-[10px] text-left flex items-center justify-between rounded-md ring-offset-background placeholder:text-black focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+}
+
+/* --- ÉP MÀU TRONG VIEWPORT CỦA RADIX --- */
+[data-radix-select-viewport] * {
+  color: black !important;
+}

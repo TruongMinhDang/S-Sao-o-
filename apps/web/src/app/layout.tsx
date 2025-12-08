@@ -15,18 +15,14 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
 
-  // State to track if the component has mounted
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
-  // On the server and during initial client render, return null
-  if (!hasMounted) {
-    return null;
-  }
-  
+  if (!hasMounted) return null;
+
   if (isLoginPage) {
     return <main>{children}</main>;
   }
@@ -34,14 +30,20 @@ function AppContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-gray-50/50">
       <MainNav />
-      {/* SỬA: Tăng padding-bottom cho container chính trên di động */}
+
       <div className="flex flex-1 flex-col pb-20 md:pb-0">
         <header className="flex h-14 items-center justify-end gap-4 border-b bg-white px-6">
           <UserNav />
         </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
-        <footer className="border-t p-3 text-center text-xs text-muted-foreground">
-          Sản phẩm chuyển đổi số của Liên Đội Trần Quang Khải — Bản quyền 2025 của Trương Minh Đăng, phát triển trên nền Firebase Studio
+
+        <main className="flex-1 p-4 md:p-6">
+          {children}
+        </main>
+
+        {/* FOOTER — ĐÃ ĐỔI THÀNH MÀU ĐEN */}
+        <footer className="border-t p-3 text-center text-xs text-black">
+          Sản phẩm chuyển đổi số của Liên Đội Trần Quang Khải — 
+          Bản quyền 2025 của Trương Minh Đăng, phát triển trên nền Firebase Studio
         </footer>
       </div>
     </div>

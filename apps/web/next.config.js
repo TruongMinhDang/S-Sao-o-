@@ -2,8 +2,6 @@
 const nextConfig = {
   output: 'standalone',
   images: {
-    // Bỏ unoptimized để Next.js có thể xử lý ảnh từ xa
-    // unoptimized: true, 
     remotePatterns: [
       {
         protocol: 'https',
@@ -17,6 +15,8 @@ const nextConfig = {
     ],
   },
   eslint: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
 };

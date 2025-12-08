@@ -256,7 +256,7 @@ export default function UsersPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">Vai trò</Label>
-              <Select value={editingUser?.role || ''} onValueChange={(value) => setEditingUser({ ...editingUser, role: value as UserRole })}>
+              <Select value={editingUser?.role || ''} onValueChange={(value: string) => setEditingUser({ ...editingUser, role: value as UserRole })}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
