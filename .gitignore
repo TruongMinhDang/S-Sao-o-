@@ -1,26 +1,2 @@
-# Build & cache (root + apps)
-node_modules/
-.next/
-out/
-dist/
-build/
-.cache/
-.vercel/
-.turbo/
-*.log
-
-# Firebase tooling cache
-.firebase/
-firebase-debug.log
-firebase-debug.*.log
-
-# Functions (SSR/build artifacts)
-functions/node_modules/
-functions/.next/
-functions/dist/
-functions/build/
-functions/.cache/
-
-# OS cruft
-.DS_Store
-Thumbs.db
+.env.local\n
+node_modules

@@ -3,8 +3,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   signInWithEmailAndPassword,
-  setPersistence,
-  browserSessionPersistence, // Chỉ sử dụng session persistence
 } from "firebase/auth";
 import { auth } from "@/lib/firebase.client";
 import { Button } from "@/components/ui/button";
@@ -34,9 +32,6 @@ export default function LoginForm() {
     setError(null);
 
     try {
-      // Luôn sử dụng session persistence, không lưu trữ lâu dài
-      await setPersistence(auth, browserSessionPersistence);
-
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
       // === FIX ===
