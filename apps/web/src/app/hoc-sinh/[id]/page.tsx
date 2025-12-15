@@ -28,12 +28,6 @@ import {
 import { useAuth } from '@/context/auth-context';
 
 // --- HELPERS (giữ nguyên) ---
-const getGradeFromClass = (className: string): string => {
-  if (!className) return '';
-  const match = className.match(/_(\d+)/);
-  return match ? match[1] : '';
-};
-
 const formatClassName = (className: string): string => {
   if (!className || !className.startsWith('class_')) return className;
   return className.substring('class_'.length).replace(/_/g, '/');
@@ -45,10 +39,10 @@ const getRuleDescription = (ruleCode: string | undefined, rules: any[]) => {
     return rule ? rule.description : ruleCode;
 };
 
-// --- INTERFACES (CẬP NHẬT) ---
+// --- INTERFACES ---
 interface Student {
   id: string;
-  studentId: string;
+  studentId: string; // Mã số học sinh, ví dụ: '2526077836'
   name: string;
   class: string;
 }
@@ -70,11 +64,10 @@ interface HocSinhDetailsPageProps { params: { id: string } }
 
 const COLORS = ['#FF8042', '#FFBB28', '#00C49F', '#0088FE', '#A569BD', '#F1948A'];
 
-// ================== PAGE COMPONENT (NÂNG CẤP TOÀN DIỆN) =====================
+// ================== PAGE COMPONENT (ĐÃ SỬA LỖI) =====================
 export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) {
   const { user, isSuperAdmin, isViewerAdmin, isHomeroomTeacher, userProfile } = useAuth();
   
-  // --- STATE MANAGEMENT ---
   const [student, setStudent] = useState<Student | null>(null);
   const [violations, setViolations] = useState<Violation[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -84,23 +77,29 @@ export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) 
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const studentId = params.id;
+  const documentId = params.id; // Đây là ID của document, ví dụ: T2Qyv3X...
 
-  // --- DATA FETCHING (NÂNG CẤP) ---
+  // --- DATA FETCHING (ĐÃ SỬA LỖI) ---
   useEffect(() => {
-    if (!studentId) return;
+    if (!documentId) return;
 
-    // Tải thông tin cơ bản của học sinh
-    const studentDocRef = doc(db, 'students', studentId);
+    // 1. Tải trước danh sách luật (chỉ 1 lần)
+    getDocs(collection(db, 'rules')).then(snapshot => {
+        setRules(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // 2. Lắng nghe thông tin cơ bản của học sinh
+    const studentDocRef = doc(db, 'students', documentId);
     const unsubStudent = onSnapshot(studentDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const d = docSnap.data();
-        setStudent({
+        const studentData = {
           id: docSnap.id,
-          studentId: d.schoolId ?? 'N/A',
+          studentId: d.schoolId ?? 'N/A', // Đây là mã số học sinh, ví dụ: 2526077836
           name: d.fullName ?? 'Không có tên',
           class: d.classRef ?? 'Chưa có lớp',
-        });
+        };
+        setStudent(studentData);
         setError(null);
       } else {
         setError('Không tìm thấy thông tin học sinh.');
@@ -113,100 +112,112 @@ export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) 
       setLoading(false);
     });
 
-    // Tải danh sách vi phạm của học sinh (real-time)
-    const violationsQuery = query(
-      collection(db, 'records'), 
-      where('studentId', '==', studentId),
-      orderBy('recordDate', 'desc')
-    );
-    const unsubViolations = onSnapshot(violationsQuery, (snapshot) => {
-      setViolations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Violation)));
-    }, (err) => console.error('Lỗi Firestore (violations):', err));
-
-    // Tải danh sách nhận xét (real-time)
+    // 3. Lắng nghe danh sách nhận xét
     const commentsQuery = query(
-        collection(db, 'students', studentId, 'comments'),
+        collection(db, 'students', documentId, 'comments'),
         orderBy('timestamp', 'desc')
     );
     const unsubComments = onSnapshot(commentsQuery, (snapshot) => {
         setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment)));
     }, (err) => console.error('Lỗi Firestore (comments):', err));
 
-    // Tải danh sách luật một lần
-    getDocs(collection(db, 'rules')).then(snapshot => {
-        setRules(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    return () => {
+      unsubStudent();
+      unsubComments();
+    };
+  }, [documentId]);
+
+  // <<< SỬA LỖI: Tách riêng useEffect để tải vi phạm SAU KHI có thông tin học sinh >>>
+  useEffect(() => {
+    if (!student || student.studentId === 'N/A') {
+      // Nếu chưa có thông tin student hoặc chưa có mã số HS thì chưa tải vi phạm
+      setViolations([]); // Xóa danh sách vi phạm cũ (nếu có)
+      return;
+    }
+
+    // 4. Lắng nghe danh sách vi phạm của học sinh (real-time) bằng schoolId
+    const violationsQuery = query(
+      collection(db, 'records'), 
+      where('studentId', '==', student.studentId), // <<< SỬA LỖI: Dùng student.studentId để truy vấn
+      orderBy('recordDate', 'desc')
+    );
+    const unsubViolations = onSnapshot(violationsQuery, (snapshot) => {
+      setViolations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Violation)));
+    }, (err) => {
+        console.error('Lỗi Firestore (violations):', err)
+        setError('Không thể tải lịch sử vi phạm.');
     });
 
     return () => {
-      unsubStudent();
-      unsubViolations();
-      unsubComments();
+        unsubViolations();
+    }
+
+  }, [student]); // Chạy lại khi đối tượng `student` thay đổi
+
+
+  // --- DERIVED STATE & HANDLERS (Giữ nguyên) ---
+    const hasAccess = useMemo(() => {
+        if (!student || !userProfile) return false;
+        if (isSuperAdmin || isViewerAdmin) return true;
+        if (isHomeroomTeacher && student.class) {
+            return userProfile.assignedClasses?.includes(student.class);
+        }
+        return false;
+    }, [student, userProfile, isSuperAdmin, isViewerAdmin, isHomeroomTeacher]);
+
+    const pointsSummary = useMemo(() => {
+        const totalPlusPoints = violations.filter(v => v.type === 'merit').reduce((sum, v) => sum + (v.pointsApplied || 0), 0);
+        const totalMinusPoints = violations.filter(v => v.type === 'demerit').reduce((sum, v) => sum + Math.abs(v.pointsApplied || 0), 0);
+        return { totalPlusPoints, totalMinusPoints, finalScore: 1000 + totalPlusPoints - totalMinusPoints };
+    }, [violations]);
+
+    const barChartData = [{
+        name: 'Điểm', 
+        'Điểm cộng': pointsSummary.totalPlusPoints,
+        'Điểm trừ': pointsSummary.totalMinusPoints,
+    }];
+
+    const pieChartData = useMemo(() => {
+        if (violations.length === 0 || rules.length === 0) return [];
+        const demerits = violations.filter(v => v.type === 'demerit' && v.ruleRef);
+
+        const counts = demerits.reduce((acc, v) => {
+            const ruleName = getRuleDescription(v.ruleRef, rules);
+            acc[ruleName] = (acc[ruleName] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        return Object.entries(counts).map(([name, value]) => ({ name, value }));
+    }, [violations, rules]);
+
+    const handleCommentSubmit = async () => {
+        if (!newComment.trim() || !user || !student) return;
+        setIsSubmitting(true);
+        try {
+        await addDoc(collection(db, 'students', student.id, 'comments'), {
+            content: newComment,
+            authorId: user.uid,
+            authorName: userProfile?.displayName || 'Không rõ',
+            timestamp: serverTimestamp(),
+        });
+        setNewComment('');
+        } catch (error) {
+        console.error("Lỗi khi gửi nhận xét: ", error);
+        alert("Đã có lỗi xảy ra khi gửi nhận xét của bạn.");
+        } finally {
+        setIsSubmitting(false);
+        }
     };
-  }, [studentId]);
 
-  // --- DERIVED STATE (LOGIC TÍNH TOÁN) ---
-  const hasAccess = useMemo(() => {
-    if (!student || !userProfile) return false;
-    if (isSuperAdmin || isViewerAdmin) return true;
-    if (isHomeroomTeacher && student.class) {
-        return userProfile.assignedClasses?.includes(student.class);
-    }
-    return false;
-  }, [student, userProfile, isSuperAdmin, isViewerAdmin, isHomeroomTeacher]);
 
-  const pointsSummary = useMemo(() => {
-      const totalPlusPoints = violations.filter(v => v.type === 'merit').reduce((sum, v) => sum + (v.pointsApplied || 0), 0);
-      const totalMinusPoints = violations.filter(v => v.type === 'demerit').reduce((sum, v) => sum + Math.abs(v.pointsApplied || 0), 0);
-      return { totalPlusPoints, totalMinusPoints, finalScore: 1000 + totalPlusPoints - totalMinusPoints };
-  }, [violations]);
-
-  const barChartData = [{
-      name: 'Điểm', 
-      'Điểm cộng': pointsSummary.totalPlusPoints,
-      'Điểm trừ': pointsSummary.totalMinusPoints,
-  }];
-
-  const pieChartData = useMemo(() => {
-      if (violations.length === 0 || rules.length === 0) return [];
-      const demerits = violations.filter(v => v.type === 'demerit' && v.ruleRef);
-
-      const counts = demerits.reduce((acc, v) => {
-          const ruleName = getRuleDescription(v.ruleRef, rules);
-          acc[ruleName] = (acc[ruleName] || 0) + 1;
-          return acc;
-      }, {} as Record<string, number>);
-
-      return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [violations, rules]);
-
-  // --- HANDLERS (XỬ LÝ SỰ KIỆN) ---
-  const handleCommentSubmit = async () => {
-    if (!newComment.trim() || !user || !student) return;
-    setIsSubmitting(true);
-    try {
-      await addDoc(collection(db, 'students', student.id, 'comments'), {
-        content: newComment,
-        authorId: user.uid,
-        authorName: userProfile?.displayName || 'Không rõ',
-        timestamp: serverTimestamp(),
-      });
-      setNewComment(''); // Xóa nội dung sau khi gửi
-    } catch (error) {
-      console.error("Lỗi khi gửi nhận xét: ", error);
-      alert("Đã có lỗi xảy ra khi gửi nhận xét của bạn.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // --- RENDER LOGIC ---
+  // --- RENDER LOGIC (Giữ nguyên) ---
   if (loading) {
       return <div className="h-24 text-center flex items-center justify-center">Đang tải dữ liệu...</div>;
   }
   if (error) {
       return <div className="h-24 text-center flex items-center justify-center text-red-500">{error}</div>;
   }
-  if (!student) { // student có thể null sau khi loading xong nếu không tìm thấy
+  if (!student) {
       return <div className="h-24 text-center flex items-center justify-center text-red-500">Không tìm thấy học sinh.</div>;
   }
   if (!hasAccess) {
@@ -230,7 +241,6 @@ export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* === CỘT TRÁI: THÔNG TIN & NHẬN XÉT === */}
           <div className="lg:col-span-1 flex flex-col gap-4">
             <Card>
               <CardHeader>
@@ -270,7 +280,6 @@ export default function HocSinhDetailsPage({ params }: HocSinhDetailsPageProps) 
             </Card>
           </div>
 
-          {/* === CỘT PHẢI: BIỂU ĐỒ & DANH SÁCH VI PHẠM === */}
           <div className="lg:col-span-2 flex flex-col gap-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>

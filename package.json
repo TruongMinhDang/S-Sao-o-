@@ -30,7 +30,10 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.22",
     "lucide-react": "^0.545.0",
+    "next": "^16.0.7",
+    "react": "^19.2.1",
     "react-day-picker": "^9.11.0",
+    "react-dom": "^19.2.1",
     "recharts": "^3.3.0",
     "styled-jsx": "^5.1.7",
     "tailwind-variants": "^3.1.1"

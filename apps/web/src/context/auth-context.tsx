@@ -76,7 +76,6 @@ function EmailVerificationScreen() {
   );
 }
 
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -91,10 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (currentUser) {
         try {
           await currentUser.reload();
-          const freshUser = getAuth(app).currentUser;
+          const freshUser = auth.currentUser;
 
           if (freshUser) {
-            setUser(Object.assign(Object.create(Object.getPrototypeOf(freshUser)), freshUser));
+            setUser(freshUser);
             setEmailVerified(freshUser.emailVerified);
 
             if (freshUser.emailVerified) {
@@ -116,6 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 assignedClasses: finalClasses,
               };
               setUserProfile(profile);
+
+              // Log debug để kiểm tra phân quyền
+              if (!profile.role) {
+                console.warn(`User logged in but has no 'role' claim. UID: ${freshUser.uid}`);
+              }
             }
           }
         } catch (error) {
@@ -146,7 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isPublicPath = publicPaths.includes(pathname);
 
-    if (user && emailVerified) { // User is logged in AND verified
+    // Chốt: Chỉ xử lý điều hướng nếu User đã Login VÀ đã xác thực Email
+    if (user && emailVerified) { 
       if (isPublicPath || pathname === '/') {
         if (isSuperAdmin) {
             router.push(authRedirectRoutes.admin);
@@ -158,19 +163,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push(authRedirectRoutes.default);
         }
       }
-    } else if (!user) { // User is not logged in
+    } else if (!user) { 
       if (!isPublicPath) {
         router.push('/login');
       }
     }
-    // If user exists but email is not verified, do nothing, the screen will be blocked.
   }, [user, emailVerified, loading, pathname, router, isSuperAdmin, isViewerAdmin, isHomeroomTeacher]);
-
 
   if (loading) {
     return <div>Đang tải...</div>;
   }
 
+  // Chặn người dùng nếu chưa xác thực email
   if (user && !emailVerified) {
     const isPublicPath = publicPaths.includes(pathname);
     if(isPublicPath) return <>{children}</>;
