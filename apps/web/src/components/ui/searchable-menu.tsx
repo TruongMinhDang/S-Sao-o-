@@ -44,15 +44,15 @@ export function SearchableMenu({ items, placeholder, value, onChange }:{
 
   return (
     <div className="relative" ref={menuRef}>
-      <button type="button" className="w-full border rounded px-3 py-2 text-left bg-white text-base h-[42px] flex items-center"
+      <button type="button" className="w-full border rounded px-3 py-2 text-left bg-popover text-popover-foreground text-base h-[42px] flex items-center"
         onClick={()=> setOpen(o=>!o)}
       >
         <span className="truncate block">{currentLabel || placeholder}</span>
         <span className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60">▾</span>
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white border rounded shadow-lg max-h-72 overflow-auto">
-          <div className="sticky top-0 bg-white p-2 border-b">
+        <div className="absolute z-50 mt-1 w-full bg-popover border rounded shadow-lg max-h-72 overflow-auto">
+          <div className="sticky top-0 bg-popover p-2 border-b">
             <input
               ref={inputRef}
               value={q}
@@ -62,15 +62,15 @@ export function SearchableMenu({ items, placeholder, value, onChange }:{
             />
           </div>
           {filtered.length === 0 ? (
-            <div className="p-3 text-gray-500">Không có kết quả</div>
+            <div className="p-3 text-muted-foreground">Không có kết quả</div>
           ) : filtered.map(i=>(
             <div 
               key={i.value}
-              className="px-4 py-2 cursor-pointer hover:bg-gray-100"
+              className="px-4 py-2 cursor-pointer hover:bg-accent text-popover-foreground"
               onClick={()=> { onChange(i.value); setOpen(false); setQ(''); }}
             >
               <div className="font-medium text-base">{i.label}</div>
-              {i.sub && <div className="text-sm text-gray-500">{i.sub}</div>}
+              {i.sub && <div className="text-sm text-muted-foreground">{i.sub}</div>}
             </div>
           ))}
         </div>

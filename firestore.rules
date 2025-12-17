@@ -1,61 +1,105 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
 
     /* =========================
-       Helpers & Role predicates
+       1. CÁC HÀM HỖ TRỢ (HELPERS)
        ========================= */
+    
+    // Kiểm tra đã đăng nhập chưa
     function isAuth() {
       return request.auth != null;
     }
-
-    function hasRole(r) {
-      return isAuth() && request.auth.token.role != null && request.auth.token.role == r;
+    
+    // Lấy role từ Token (An toàn tuyệt đối, không fake được)
+    function getRole() {
+      return request.auth.token.role;
     }
 
+    function hasRole(r) {
+      return isAuth() && getRole() == r;
+    }
+
+    // Định nghĩa các vai trò
     function isAdmin() { return hasRole('admin'); }
     function isProctor() { return hasRole('giam_thi'); }
     function isHomeroom() { return hasRole('homeroom_teacher') || hasRole('giao_vien_chu_nhiem'); }
+    
+    // [ĐÃ SỬA]: Đồng bộ 'nv_tin_hoc' để khớp với auth-context.tsx
     function isReadOnlyBoss() {
-      return hasRole('hieu_truong') || hasRole('pho_hieu_truong') || hasRole('nhan_vien_cntt');
+      return hasRole('hieu_truong') || hasRole('pho_hieu_truong') || hasRole('nv_tin_hoc');
     }
 
-    // Centralized function to grant Admin-like READ access
+    // Hàm gom nhóm quyền đọc (Admin, GVCN, BGH đều được xem)
     function canReadEverything() {
         return isAdmin() || isHomeroom() || isReadOnlyBoss();
     }
 
     /* =========================
-       Rules per Collection
+       2. HÀM KIỂM TRA DỮ LIỆU (VALIDATION)
        ========================= */
 
-    /* USERS */
+    // Kiểm tra dữ liệu ghi nhận vi phạm có hợp lệ không
+    // Ngăn chặn hack điểm (ví dụ: trừ 1000 điểm) hoặc fake người tạo
+    function isValidRecord() {
+      let data = request.resource.data;
+      return data.classId is string 
+             && data.classId.size() > 0
+             && data.pointsApplied is number
+             && data.pointsApplied >= -100 // Giới hạn điểm trừ tối đa
+             && data.pointsApplied <= 100  // Giới hạn điểm cộng tối đa
+             && data.supervisorRef == request.auth.uid; // Bắt buộc: Người tạo phải là chính mình
+    }
+
+    // Chỉ cho phép sửa/xóa trong vòng 24h (ngăn sửa lại lịch sử cũ)
+    function isRecent(rsc) {
+       // Nếu record cũ chưa có createdAt thì cho qua, ngược lại check thời gian
+       return !('createdAt' in rsc.data) || (request.time.toMillis() - rsc.data.createdAt.toMillis() < 24 * 60 * 60 * 1000);
+    }
+
+    /* =========================
+       3. QUY TẮC CHO TỪNG COLLECTION
+       ========================= */
+
+    /* USERS - Thông tin người dùng */
     match /users/{uid} {
       allow get, list: if canReadEverything() || (isAuth() && request.auth.uid == uid);
+      // Cấm user tự đổi role của mình để leo quyền
+      allow update: if isAuth() && request.auth.uid == uid
+                      && !('role' in request.resource.data.diff(resource.data).changedKeys())
+                      && !('roles' in request.resource.data.diff(resource.data).changedKeys());
       allow create: if isAuth() && request.auth.uid == uid;
-      allow update: if (isAuth() && request.auth.uid == uid
-                      && !('roles' in request.resource.data.diff(resource.data).changedKeys())
-                      && !('claims' in request.resource.data.diff(resource.data).changedKeys()));
       allow write: if isAdmin();
     }
 
-    /* STUDENTS */
+    /* STUDENTS - Danh sách học sinh */
     match /students/{studentId} {
-        // FIX: Allow proctors to read student list to create records
+        // Giám thị cần đọc danh sách HS để ghi nhận lỗi
         allow read: if canReadEverything() || isProctor();
         allow write: if isAdmin();
     }
 
-    /* RECORDS */
+    /* RECORDS - Ghi nhận Vi phạm/Thành tích (QUAN TRỌNG NHẤT) */
     match /records/{recordId} {
+        // Ai được xem?
         allow read: if canReadEverything() || isProctor();
-        allow create: if isProctor() && request.resource.data.classId is string && request.resource.data.gradeId is string;
-        allow update, delete: if isProctor();
-        allow write: if isAdmin();
+        
+        // TẠO MỚI: Chỉ Giám thị & Dữ liệu phải hợp lệ
+        allow create: if isProctor() && isValidRecord();
+        
+        // SỬA / XÓA: [ĐÃ VÁ LỖI BẢO MẬT]
+        // 1. Phải là Giám thị
+        // 2. Phải là "chính chủ" (người tạo ra record này) -> Ngăn xóa bài của người khác
+        // 3. Chỉ được sửa trong vòng 24h -> Ngăn sửa lịch sử tuần trước
+        allow update, delete: if isProctor() 
+                              && resource.data.supervisorRef == request.auth.uid
+                              && isRecent(resource);
+                              
+        // Admin có quyền tối thượng (sửa/xóa tất cả)
+        allow write: if isAdmin(); 
     }
 
-    /* WEEKLY REPORTS & SCORES - Explicit rules for known collections */
+    /* WEEKLY REPORTS & SCORES - Báo cáo & Điểm tuần */
     match /weekly_reports/{reportId} {
         allow read: if canReadEverything();
         allow write: if isAdmin();
@@ -68,18 +112,18 @@ service cloud.firestore {
         allow read: if canReadEverything();
         allow write: if isAdmin();
     }
-
-    /* CLASSES & RULES (Publicly readable by any authenticated user) */
+    
+    /* CLASSES & RULES - Danh mục Lớp & Quy định */
     match /classes/{classId} {
-      allow read: if isAuth();
+      allow read: if isAuth(); // Ai đăng nhập cũng được xem ds lớp
       allow write: if isAdmin();
     }
     match /rules/{ruleId} {
-      allow read: if isAuth();
+      allow read: if isAuth(); // Ai đăng nhập cũng được xem nội quy
       allow write: if isAdmin();
     }
     
-    // CORRECTED FALLBACK: Grant broad read access, restrict write access.
+    /* CATCH-ALL - Quy tắc mặc định cho các collection khác (nếu có) */
     match /{document=**} {
         allow read: if canReadEverything();
         allow write: if isAdmin();
