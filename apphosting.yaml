@@ -1,6 +1,8 @@
-run:
-  build: npm --prefix apps/web run build
-  start: npm --prefix apps/web run start
+runtime: nodejs20
+build:
+  - npm install --unsafe-perm
+  - npm run build --prefix apps/web
+entrypoint: npm start --prefix apps/web
 env:
   - variable: APP_SOSAODO_ID
     secret: firebase-project-id
@@ -8,3 +10,6 @@ env:
     secret: FIREBASE_CLIENT_EMAIL
   - variable: APP_SOSAODO_KEY
     secret: FIREBASE_PRIVATE_KEY
+runConfig:
+  cpu: 1
+  memoryMiB: 512
