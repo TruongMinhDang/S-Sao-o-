@@ -245,9 +245,12 @@ export default function MyClassPage() {
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <CardTitle className="text-2xl">Tổng Quan Lớp Học</CardTitle>
-              <CardDescription>Theo dõi điểm số và vi phạm qua từng tuần.</CardDescription>
+            <div className="flex items-center gap-4">
+              <img src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon%20bi%C3%AA%CC%89u%20%C4%91%C3%B4%CC%80.gif?alt=media&token=efb96cab-ddfa-4169-892f-27073792ed36" alt="Biểu đồ icon" className="w-10 h-10" />
+              <div>
+                <CardTitle className="text-2xl">Tổng Quan Lớp Học</CardTitle>
+                <CardDescription>Theo dõi điểm số và vi phạm qua từng tuần.</CardDescription>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">

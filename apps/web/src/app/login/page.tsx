@@ -81,7 +81,10 @@ export default function LoginPage() {
         <div className="mx-auto grid w-[350px] gap-6">
            <Card className="border-none shadow-none">
             <CardHeader className="text-center">
-                <CardTitle className="text-3xl font-bold tracking-tighter">Đăng Nhập</CardTitle>
+                <div className="flex items-center justify-center gap-3">
+                  <img src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon%20%C4%91%C4%83ng%20nh%C3%A2%CC%A3p.png?alt=media&token=c9a350c6-42ab-4514-babc-5821c0060af4" alt="Đăng nhập icon" className="w-10 h-10" />
+                  <CardTitle className="text-3xl font-bold tracking-tighter">Đăng Nhập</CardTitle>
+                </div>
                 <CardDescription>Nhập email và mật khẩu của bạn để truy cập hệ thống</CardDescription>
             </CardHeader>
             <CardContent>

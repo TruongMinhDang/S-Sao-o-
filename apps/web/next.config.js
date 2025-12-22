@@ -1,6 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  
+  // --- BẮT ĐẦU PHẦN SỬA LỖI ---
+  // Ép Next.js biên dịch các thư viện này để tránh lỗi "Module not found"
+  transpilePackages: ['recharts', 'react-smooth'],
+  
+  // Tối ưu hóa việc import để giảm dung lượng và tránh xung đột
+  experimental: {
+    optimizePackageImports: ['recharts', 'lodash'],
+  },
+  // --- KẾT THÚC PHẦN SỬA LỖI ---
+
   images: {
     remotePatterns: [
       {
