@@ -1,11 +1,19 @@
-env:
-  - variable: APP_SOSAODO_ID
-    secret: firebase-project-id
-  - variable: APP_SOSAODO_EMAIL
-    secret: FIREBASE_CLIENT_EMAIL
-  - variable: APP_SOSAODO_KEY
-    secret: FIREBASE_PRIVATE_KEY
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+  // Xử lý lỗi thư viện Recharts
+  transpilePackages: ['recharts'], 
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+    ],
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+};
 
-runConfig:
-  cpu: 1
-  memoryMiB: 512
+module.exports = nextConfig;
