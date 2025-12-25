@@ -45,7 +45,10 @@ export default function HoSoCuaToiPage() {
   if (loading) {
     return (
         <div className="space-y-4">
-            <h1 className="text-3xl font-bold tracking-tight">Hồ Sơ Cá Nhân</h1>
+            <div className="flex items-center gap-4">
+              <img src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon.%20h%C3%B4%CC%80%20s%C6%A1%20ca%CC%81%20nh%C3%A2n.png?alt=media&token=4b829fc0-06e1-4706-85c0-8bf3a4222c03" alt="Hồ sơ icon" className="w-10 h-10" />
+              <h1 className="text-3xl font-bold tracking-tight">Hồ Sơ Cá Nhân</h1>
+            </div>
             <p>Đang tải thông tin của bạn...</p>
         </div>
     );
@@ -54,7 +57,10 @@ export default function HoSoCuaToiPage() {
   if (!user || !userProfile) {
     return (
          <div className="space-y-4">
-            <h1 className="text-3xl font-bold tracking-tight">Hồ Sơ Cá Nhân</h1>
+            <div className="flex items-center gap-4">
+              <img src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon.%20h%C3%B4%CC%80%20s%C6%A1%20ca%CC%81%20nh%C3%A2n.png?alt=media&token=4b829fc0-06e1-4706-85c0-8bf3a4222c03" alt="Hồ sơ icon" className="w-10 h-10" />
+              <h1 className="text-3xl font-bold tracking-tight">Hồ Sơ Cá Nhân</h1>
+            </div>
             <p>Không tìm thấy thông tin người dùng.</p>
         </div>
     )
@@ -62,7 +68,10 @@ export default function HoSoCuaToiPage() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold tracking-tight">Hồ Sơ Cá Nhân</h1>
+      <div className="flex items-center gap-4">
+        <img src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon.%20h%C3%B4%CC%80%20s%C6%A1%20ca%CC%81%20nh%C3%A2n.png?alt=media&token=4b829fc0-06e1-4706-85c0-8bf3a4222c03" alt="Hồ sơ icon" className="w-10 h-10" />
+        <h1 className="text-3xl font-bold tracking-tight">Hồ Sơ Cá Nhân</h1>
+      </div>
       
       <Card>
         <CardHeader>

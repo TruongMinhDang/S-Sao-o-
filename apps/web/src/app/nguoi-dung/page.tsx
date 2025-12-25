@@ -169,9 +169,12 @@ export default function UsersPage() {
   return (
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-orange-600">Quản Lý Người Dùng</h1>
-          <p className="text-gray-500 mt-1">Chỉ Quản trị viên tối cao mới có thể truy cập trang này.</p>
+        <div className="flex items-center gap-4">
+          <img src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon%20ng%C6%B0%C6%A1%CC%80i%20du%CC%80ng.svg?alt=media&token=9d449ba6-b8ca-42c2-ad77-9624dd830a1e" alt="Người dùng icon" className="w-10 h-10" />
+          <div>
+            <h1 className="text-3xl font-bold text-orange-600">Quản Lý Người Dùng</h1>
+            <p className="text-gray-500 mt-1">Chỉ Quản trị viên tối cao mới có thể truy cập trang này.</p>
+          </div>
         </div>
         {isSuperAdmin && (
           <Button onClick={handleAddNewUser}>
