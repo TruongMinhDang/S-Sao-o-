@@ -1,6 +1,6 @@
 runtime: nodejs20
 build:
-  - npm install --unsafe-perm
+  - npm install
   - npm run build --prefix apps/web
 entrypoint: npm start --prefix apps/web
 env:
