@@ -39,10 +39,17 @@ const getStartOfDay = (d: Date): Date => {
  */
 export const toDate = (d: DateInput): Date => {
   if (d instanceof Date) return d;
-  if (typeof d === 'object' && d !== null && 'toDate' in d && typeof (d as FirestoreTimestamp).toDate === 'function') {
+
+  if (
+    typeof d === 'object' &&
+    d !== null &&
+    'toDate' in d &&
+    typeof (d as FirestoreTimestamp).toDate === 'function'
+  ) {
     return (d as FirestoreTimestamp).toDate();
   }
-  return new Date(d);
+
+  return new Date(d as string | number);
 };
 
 /**
