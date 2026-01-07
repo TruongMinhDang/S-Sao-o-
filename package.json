@@ -2,14 +2,15 @@
   "name": "app-quan-ly-hs",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@9.1.1",
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace=apps/web",
-    "dev": "npm run dev --workspace=apps/web",
-    "start": "npm run start --workspace=apps/web",
-    "lint": "npm run lint --workspace=apps/web"
+    "build": "pnpm --filter ./apps/web build",
+    "dev": "pnpm --filter ./apps/web dev",
+    "start": "pnpm --filter ./apps/web start",
+    "lint": "pnpm --filter ./apps/web lint"
   },
   "dependencies": {
     "firebase": "^10.12.2",
