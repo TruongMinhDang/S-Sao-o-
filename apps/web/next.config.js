@@ -1,5 +1,8 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: path.join(__dirname, '../../.next'),
   output: 'standalone',
   // Xử lý lỗi thư viện Recharts
   transpilePackages: ['recharts'], 
