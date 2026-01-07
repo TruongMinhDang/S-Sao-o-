@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "npx --node-options='--max-old-space-size=12288' next dev",
-    "build": "next build",
+    "build": "next build && mkdir -p ../../.next/standalone/.next && cp ../../.next/routes-manifest.json ../../.next/standalone/.next/routes-manifest.json",
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint"
   },

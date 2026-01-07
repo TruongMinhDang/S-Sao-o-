@@ -1,0 +1,22 @@
+{
+  "name": "app-quan-ly-hs",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=apps/web",
+    "dev": "npm run dev --workspace=apps/web",
+    "start": "npm run start --workspace=apps/web",
+    "lint": "npm run lint --workspace=apps/web"
+  },
+  "dependencies": {
+    "firebase": "^10.12.2",
+    "firebase-admin": "^12.1.1",
+    "react-firebase-hooks": "^5.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
