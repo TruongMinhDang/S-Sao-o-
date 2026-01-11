@@ -2,13 +2,13 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Đưa file build ra ngoài root để Google Adapter tìm thấy
-  distDir: '../../.next',
+  // CHÌA KHÓA VÀNG: Đưa file ra gốc workspace
+  distDir: '../../.next', 
   
   output: 'standalone',
 
   experimental: {
-    // Giữ cái này để gom đủ file trong monorepo
+    // Gom đủ file thư viện từ gốc
     outputFileTracingRoot: path.join(__dirname, '../../'),
   },
 

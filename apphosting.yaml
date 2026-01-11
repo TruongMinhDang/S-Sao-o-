@@ -2,8 +2,10 @@ runtime: nodejs20
 build:
   - npm install
   - npm run build --prefix apps/web
+  # Dòng này để debug: Nếu lỗi, mở log xem file nó đang nằm ở đâu
+  - ls -R .next || echo "Không thấy thư mục .next ở gốc"
 
-# File server.js bây giờ nằm ngay trong .next ở gốc
+# Đường dẫn này khớp 100% với distDir: '../../.next'
 entrypoint: node .next/standalone/apps/web/server.js
 
 env:
@@ -16,4 +18,4 @@ env:
 
 runConfig:
   cpu: 1
-  memoryMiB: 512
+  memoryMiB: 1024
