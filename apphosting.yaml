@@ -2,20 +2,18 @@ runtime: nodejs20
 build:
   - npm install
   - npm run build --prefix apps/web
-  # Dòng này giữ lại để debug nếu cần
-  - ls -R .next || echo "Check path"
+  # Lệnh debug: In ra cấu trúc thư mục để xem file server nằm đâu
+  - ls -R .next || echo "⚠️ Không thấy thư mục .next"
 
-# Entrypoint giữ nguyên (đã đúng)
+# --- PHẦN SỬA ĐỔI QUAN TRỌNG ---
+# Dùng lệnh này để chạy chính xác file server trong thư mục apps/web
 entrypoint: node .next/standalone/apps/web/server.js
 
 env:
-  # --- ĐÂY LÀ THUỐC ĐẶC TRỊ CHO LỖI TRONG ẢNH ---
-  # Bắt buộc phải có 2 dòng này Google mới nhận diện được App
   - variable: HOSTNAME
     value: "0.0.0.0"
   - variable: PORT
     value: "8080"
-  # ----------------------------------------------
 
   - variable: APP_SOSAODO_ID
     secret: firebase-project-id
