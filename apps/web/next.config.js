@@ -2,18 +2,16 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Output to the default .next folder inside apps/web
-  distDir: '.next',
+  // Đưa file build ra ngoài root để Google Adapter tìm thấy
+  distDir: '../../.next',
   
-  // The output mode required by Google App Hosting
   output: 'standalone',
 
-  // Help Next.js trace dependencies in a monorepo for standalone output
   experimental: {
+    // Giữ cái này để gom đủ file trong monorepo
     outputFileTracingRoot: path.join(__dirname, '../../'),
   },
 
-  // Existing config
   transpilePackages: ['recharts'], 
   images: {
     remotePatterns: [

@@ -1,10 +1,10 @@
 runtime: nodejs20
-
 build:
   - npm install
   - npm run build --prefix apps/web
 
-entrypoint: node apps/web/.next/standalone/apps/web/server.js
+# File server.js bây giờ nằm ngay trong .next ở gốc
+entrypoint: node .next/standalone/apps/web/server.js
 
 env:
   - variable: APP_SOSAODO_ID
