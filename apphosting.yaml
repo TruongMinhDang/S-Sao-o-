@@ -2,13 +2,21 @@ runtime: nodejs20
 build:
   - npm install
   - npm run build --prefix apps/web
-  # Dòng này để debug: Nếu lỗi, mở log xem file nó đang nằm ở đâu
-  - ls -R .next || echo "Không thấy thư mục .next ở gốc"
+  # Dòng này debug tốt, giữ lại
+  - ls -R .next || echo "Check path"
 
-# Đường dẫn này khớp 100% với distDir: '../../.next'
+# Entrypoint này ĐÚNG
 entrypoint: node .next/standalone/apps/web/server.js
 
 env:
+  # --- PHẦN SẾP ĐANG THIẾU (CỰC KỲ QUAN TRỌNG) ---
+  # Không có 2 dòng này là Web không chạy được trên Google
+  - variable: HOSTNAME
+    value: "0.0.0.0"
+  - variable: PORT
+    value: "8080"
+  # -----------------------------------------------
+
   - variable: APP_SOSAODO_ID
     secret: firebase-project-id
   - variable: APP_SOSAODO_EMAIL
