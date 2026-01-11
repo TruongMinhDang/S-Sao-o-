@@ -2,12 +2,15 @@ runtime: nodejs20
 build:
   - npm install
   - npm run build --prefix apps/web
-  # Lệnh debug: In ra cấu trúc thư mục để xem file server nằm đâu
-  - ls -R .next || echo "⚠️ Không thấy thư mục .next"
+  # --- 1. COPY FILE TĨNH (Bắt buộc cho Monorepo) ---
+  # Copy public và static vào đúng chỗ để server có cái mà hiển thị
+  - cp -r apps/web/public .next/standalone/apps/web/ || true
+  - cp -r apps/web/.next/static .next/standalone/apps/web/.next/ || true
 
-# --- PHẦN SỬA ĐỔI QUAN TRỌNG ---
-# Dùng lệnh này để chạy chính xác file server trong thư mục apps/web
-entrypoint: node .next/standalone/apps/web/server.js
+# --- 2. ENTRYPOINT CHUẨN XÁC ---
+# Dùng sh -c để ép PORT=8080
+# Trỏ đúng vào apps/web/server.js (Nơi file thực sự nằm)
+entrypoint: sh -c "PORT=8080 HOSTNAME=0.0.0.0 node .next/standalone/apps/web/server.js"
 
 env:
   - variable: HOSTNAME
