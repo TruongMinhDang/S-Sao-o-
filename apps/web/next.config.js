@@ -2,8 +2,8 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Tell Next.js to put the build output in the root .next folder
-  distDir: path.join(__dirname, '../../.next'),
+  // Output to the default .next folder inside apps/web
+  distDir: '.next',
   
   // The output mode required by Google App Hosting
   output: 'standalone',
