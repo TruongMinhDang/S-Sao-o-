@@ -1,23 +1,21 @@
 runtime: nodejs20
 build:
   - npm install
-  - npm run build --prefix apps/web
-  # --- 1. COPY FILE TĨNH (Bắt buộc cho Monorepo) ---
-  # Copy public và static vào đúng chỗ để server có cái mà hiển thị
-  - cp -r apps/web/public .next/standalone/apps/web/ || true
-  - cp -r apps/web/.next/static .next/standalone/apps/web/.next/ || true
+  - npm run build --workspace=apps/web
+  # --- FIX LỖI COPY CHO MONOREPO ---
+  - mkdir -p apps/web/.next/standalone/apps/web/public
+  - mkdir -p apps/web/.next/standalone/apps/web/.next/static
+  - cp -R apps/web/public/* apps/web/.next/standalone/apps/web/public/ || true
+  - cp -R apps/web/.next/static/* apps/web/.next/standalone/apps/web/.next/static/ || true
 
-# --- 2. ENTRYPOINT CHUẨN XÁC ---
-# Dùng sh -c để ép PORT=8080
-# Trỏ đúng vào apps/web/server.js (Nơi file thực sự nằm)
-entrypoint: sh -c "PORT=8080 HOSTNAME=0.0.0.0 node .next/standalone/apps/web/server.js"
+# --- ENTRYPOINT TRỎ THẲNG VÀO STANDALONE ---
+entrypoint: sh -c "PORT=8080 HOSTNAME=0.0.0.0 node apps/web/.next/standalone/apps/web/server.js"
 
 env:
   - variable: HOSTNAME
     value: "0.0.0.0"
   - variable: PORT
     value: "8080"
-
   - variable: APP_SOSAODO_ID
     secret: firebase-project-id
   - variable: APP_SOSAODO_EMAIL

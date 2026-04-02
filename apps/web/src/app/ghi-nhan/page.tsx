@@ -12,7 +12,7 @@ import {
   orderBy,
   deleteDoc,
 } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase-client';
+import { db, auth } from '@/lib/firebase.client'; // ✅ ĐÃ SỬA: firebase-client → firebase.client
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';

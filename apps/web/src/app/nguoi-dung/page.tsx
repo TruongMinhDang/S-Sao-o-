@@ -1,58 +1,35 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { db } from '@/lib/firebase-client';
-import {
-  collection,
-  onSnapshot,
-  addDoc,
-  doc,
-  setDoc,
-  query,
-} from 'firebase/firestore';
+import { db } from '@/lib/firebase.client';
+import { app } from '@/lib/firebase.client';
+import { collection, onSnapshot, addDoc, doc, setDoc, query } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Search } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
-type UserRole = 
+// ✅ ĐÃ SỬA: nhan_vien_cntt → nv_tin_hoc để khớp với hệ thống phân quyền
+type UserRole =
   | 'giam_thi'
   | 'homeroom_teacher'
   | 'hieu_truong'
   | 'pho_hieu_truong'
-  | 'nhan_vien_cntt'
+  | 'nv_tin_hoc'       // ✅ SỬA
   | 'admin';
 
+// ✅ ĐÃ SỬA: key nhan_vien_cntt → nv_tin_hoc
 const ROLES = {
   giam_thi: 'Giám thị',
   homeroom_teacher: 'Giáo viên chủ nhiệm',
   hieu_truong: 'Hiệu trưởng',
   pho_hieu_truong: 'Phó hiệu trưởng',
-  nhan_vien_cntt: 'Nhân viên CNTT',
+  nv_tin_hoc: 'Nhân viên CNTT',  // ✅ SỬA
   admin: 'Quản trị tối cao',
 };
 
@@ -68,14 +45,14 @@ const formatRole = (role: UserRole) => ROLES[role] || role;
 
 export default function UsersPage() {
   const { user: authUser, loading: authLoading, isSuperAdmin } = useAuth();
-
   const [users, setUsers] = useState<User[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) {
@@ -88,7 +65,6 @@ export default function UsersPage() {
       setUsers([]);
       return;
     }
-
     const usersQuery = query(collection(db, 'users'));
     const unsubscribe = onSnapshot(
       usersQuery,
@@ -106,7 +82,6 @@ export default function UsersPage() {
         setDataLoading(false);
       }
     );
-
     return () => unsubscribe();
   }, [authLoading, isSuperAdmin]);
 
@@ -121,36 +96,68 @@ export default function UsersPage() {
 
   const handleAddNewUser = () => {
     setEditingUser({});
+    setSaveMessage(null);
     setModalOpen(true);
   };
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
+    setSaveMessage(null);
     setModalOpen(true);
   };
 
   const handleSaveUser = async () => {
     if (!editingUser) return;
+    if (!editingUser.displayName || !editingUser.email || !editingUser.role) {
+      alert("Vui lòng nhập đầy đủ họ tên, email, và vai trò.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveMessage(null);
+
     try {
-      if (!editingUser.displayName || !editingUser.email || !editingUser.role) {
-        alert("Vui lòng nhập đầy đủ họ tên, email, và vai trò.");
-        return;
-      }
       const dataToSave: Partial<User> = { ...editingUser };
+
       if (editingUser.id) {
+        // Cập nhật user đã tồn tại
         const userRef = doc(db, 'users', editingUser.id);
         await setDoc(userRef, dataToSave, { merge: true });
+
+        // ✅ ĐÃ THÊM: Gọi setUserClaims để cập nhật quyền thật sự trong Firebase Auth
+        try {
+          const functions = getFunctions(app, 'asia-southeast1');
+          const setClaimsFn = httpsCallable(functions, 'setUserClaims');
+          await setClaimsFn({
+            uid: editingUser.id,
+            role: editingUser.role,
+            assignedClasses: editingUser.assignedClasses || [],
+          });
+          setSaveMessage('✅ Đã lưu. Người dùng cần đăng xuất và đăng nhập lại để quyền mới có hiệu lực.');
+        } catch (claimsError) {
+          console.error("Lỗi setUserClaims:", claimsError);
+          setSaveMessage('⚠️ Đã lưu thông tin nhưng không thể cập nhật quyền Auth. Kiểm tra lại function setUserClaims.');
+        }
       } else {
+        // Tạo user mới — chỉ ghi Firestore, Claims cần cấp sau khi user đăng ký
         await addDoc(collection(db, 'users'), dataToSave);
+        setSaveMessage('✅ Đã tạo hồ sơ. Sau khi người dùng đăng ký tài khoản, mở lại và lưu để cấp quyền Auth.');
+        setModalOpen(false);
+        setEditingUser(null);
+        setIsSaving(false);
+        return;
       }
+
       setModalOpen(false);
       setEditingUser(null);
     } catch (err) {
       console.error("Lỗi lưu người dùng:", err);
       alert("Đã có lỗi khi lưu thông tin.");
+    } finally {
+      setIsSaving(false);
     }
   };
-  
+
   const isLoading = authLoading || dataLoading;
 
   if (isLoading) {
@@ -159,10 +166,10 @@ export default function UsersPage() {
 
   if (!isSuperAdmin) {
     return (
-        <div className="p-8 text-center text-red-600 bg-red-50 rounded-lg">
-            <h1 className="text-2xl font-bold">Truy cập bị từ chối</h1>
-            <p>Bạn không có quyền truy cập trang này.</p>
-        </div>
+      <div className="p-8 text-center text-red-600 bg-red-50 rounded-lg">
+        <h1 className="text-2xl font-bold">Truy cập bị từ chối</h1>
+        <p>Bạn không có quyền truy cập trang này.</p>
+      </div>
     );
   }
 
@@ -170,7 +177,11 @@ export default function UsersPage() {
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <img src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon%20ng%C6%B0%C6%A1%CC%80i%20du%CC%80ng.svg?alt=media&token=9d449ba6-b8ca-42c2-ad77-9624dd830a1e" alt="Người dùng icon" className="w-10 h-10" />
+          <img
+            src="https://firebasestorage.googleapis.com/v0/b/app-quan-ly-hs.firebasestorage.app/o/Icon%2Ficon%20ng%C6%B0%C6%A1%CC%80i%20du%CC%80ng.svg?alt=media&token=9d449ba6-b8ca-42c2-ad77-9624dd830a1e"
+            alt="Người dùng icon"
+            className="w-10 h-10"
+          />
           <div>
             <h1 className="text-3xl font-bold text-orange-600">Quản Lý Người Dùng</h1>
             <p className="text-gray-500 mt-1">Chỉ Quản trị viên tối cao mới có thể truy cập trang này.</p>
@@ -186,7 +197,7 @@ export default function UsersPage() {
 
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <div className="flex flex-col md:flex-row items-center justify-between mb-4">
-           <div>
+          <div>
             <h2 className="text-2xl font-bold">Danh Sách Người Dùng</h2>
             <p className="text-gray-500 mt-1">Tất cả người dùng đã đăng ký trong hệ thống.</p>
           </div>
@@ -243,23 +254,37 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <Dialog open={isModalOpen} onOpenChange={setModalOpen}>
-         <DialogContent className="bg-white">
+      <Dialog open={isModalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) setSaveMessage(null); }}>
+        <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle>{editingUser?.id ? 'Sửa Thông Tin Người Dùng' : 'Thêm Người Dùng Mới'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="displayName" className="text-right">Tên hiển thị</Label>
-              <Input id="displayName" value={editingUser?.displayName || ''} onChange={(e) => setEditingUser({ ...editingUser, displayName: e.target.value })} className="col-span-3" />
+              <Input
+                id="displayName"
+                value={editingUser?.displayName || ''}
+                onChange={(e) => setEditingUser({ ...editingUser, displayName: e.target.value })}
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">Email</Label>
-              <Input id="email" type="email" value={editingUser?.email || ''} onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} className="col-span-3" />
+              <Input
+                id="email"
+                type="email"
+                value={editingUser?.email || ''}
+                onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">Vai trò</Label>
-              <Select value={editingUser?.role || ''} onValueChange={(value: string) => setEditingUser({ ...editingUser, role: value as UserRole })}>
+              <Select
+                value={editingUser?.role || ''}
+                onValueChange={(value: string) => setEditingUser({ ...editingUser, role: value as UserRole })}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
@@ -268,7 +293,7 @@ export default function UsersPage() {
                   <SelectItem value="giam_thi">Giám thị</SelectItem>
                   <SelectItem value="hieu_truong">Hiệu trưởng</SelectItem>
                   <SelectItem value="pho_hieu_truong">Phó hiệu trưởng</SelectItem>
-                  <SelectItem value="nhan_vien_cntt">Nhân viên CNTT</SelectItem>
+                  <SelectItem value="nv_tin_hoc">Nhân viên CNTT</SelectItem>  {/* ✅ SỬA */}
                   <SelectItem value="admin">Quản trị tối cao</SelectItem>
                 </SelectContent>
               </Select>
@@ -278,17 +303,32 @@ export default function UsersPage() {
                 <Label htmlFor="assignedClasses" className="text-right">Lớp phụ trách</Label>
                 <Input
                   id="assignedClasses"
-                  value={Array.isArray(editingUser?.assignedClasses) ? editingUser.assignedClasses.join(', ') : (editingUser?.assignedClasses || '')}
-                  onChange={(e) => setEditingUser({ ...editingUser, assignedClasses: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  value={Array.isArray(editingUser?.assignedClasses)
+                    ? editingUser.assignedClasses.join(', ')
+                    : (editingUser?.assignedClasses || '')}
+                  onChange={(e) => setEditingUser({
+                    ...editingUser,
+                    assignedClasses: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                  })}
                   className="col-span-3"
                   placeholder="Ví dụ: class_7_1, class_7_2"
                 />
               </div>
             )}
+            {/* ✅ Thông báo sau khi lưu */}
+            {saveMessage && (
+              <div className={`col-span-4 text-sm p-3 rounded-md ${saveMessage.startsWith('✅') ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                {saveMessage}
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Hủy</Button></DialogClose>
-            <Button onClick={handleSaveUser}>Lưu</Button>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isSaving}>Hủy</Button>
+            </DialogClose>
+            <Button onClick={handleSaveUser} disabled={isSaving}>
+              {isSaving ? 'Đang lưu...' : 'Lưu'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

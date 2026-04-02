@@ -8,12 +8,46 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@sosd/domain": ["packages/domain/src"]
-    }
+      "@sosd/domain": [
+        "packages/domain/src"
+      ]
+    },
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "noEmit": true,
+    "incremental": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "references": [
-    { "path": "./apps/web" },
-    { "path": "./apps/functions" },
-    { "path": "./packages/domain" }
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./apps/functions"
+    },
+    {
+      "path": "./packages/domain"
+    }
+  ],
+  "include": [
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }
